@@ -52,7 +52,7 @@ development_status:
   2-1-build-a-deterministic-write-plan-from-inputs: done
   2-2-dry-run-mode-shows-intended-changes-without-writing: done
   2-3-idempotency-rules-prevent-cue-thrashing-on-reruns: done
-  2-4-regeneration-updates-only-tool-created-cues-when-needed: ready-for-dev
+  2-4-regeneration-updates-only-tool-created-cues-when-needed: done
   epic-2-retrospective: optional
   epic-3: backlog
   3-1-enforce-fail-closed-preconditions-before-any-write: backlog

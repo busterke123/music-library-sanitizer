@@ -1,6 +1,6 @@
 # Story 2.4: Regeneration updates only tool-created cues when needed
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -17,13 +17,13 @@ so that improvements can be applied without touching my manual cues.
 
 ## Tasks / Subtasks
 
-- [ ] Define regeneration triggers and comparison rules in planning (AC: 1, 2)
-  - [ ] Determine the signal for regeneration (config hash, algorithm version, stage config) (AC: 1)
-  - [ ] Compare planned cues with tool-provenanced cues to decide updates vs unchanged (AC: 1)
-- [ ] Enforce overwrite policy for tool-created cues only (AC: 1, 2)
-  - [ ] Ensure user-created cues are never selected for overwrite, even during regeneration (AC: 2)
-- [ ] Persist and load provenance needed to identify tool-created cues (AC: 1, 2)
-- [ ] Add tests for regeneration behavior and policy enforcement (AC: 1, 2)
+- [x] Define regeneration triggers and comparison rules in planning (AC: 1, 2)
+  - [x] Determine the signal for regeneration (config hash, algorithm version, stage config) (AC: 1)
+  - [x] Compare planned cues with tool-provenanced cues to decide updates vs unchanged (AC: 1)
+- [x] Enforce overwrite policy for tool-created cues only (AC: 1, 2)
+  - [x] Ensure user-created cues are never selected for overwrite, even during regeneration (AC: 2)
+- [x] Persist and load provenance needed to identify tool-created cues (AC: 1, 2)
+- [x] Add tests for regeneration behavior and policy enforcement (AC: 1, 2)
 
 ## Dev Notes
 
@@ -92,14 +92,14 @@ so that improvements can be applied without touching my manual cues.
 
 ## Story Completion Status
 
-- Status: ready-for-dev
-- Completion note: Ultimate context engine analysis completed - comprehensive developer guide created.
+- Status: done
+- Completion note: Regeneration gating and overwrite policy implemented with provenance-aware triggers and tests.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+GPT-5 (Codex)
 
 ### Debug Log References
 
@@ -116,11 +116,21 @@ None.
 - Regeneration must never overwrite user-created cues.
 - Deterministic planning must be preserved; regeneration only when trigger applies.
 - Use provenance to identify tool-created cues and avoid slot churn.
+- Regeneration trigger uses generation_id derived from config snapshot + plan version.
+- Tests: `python3 -m pytest` (33 passed, 1 skipped), `python3 -m pytest tests/unit/test_idempotency.py` (7 passed)
+- Code review fixes: persist generation_id even without cue updates; guard regeneration when provenance is unverified.
 
 ### File List
 
 - _bmad-output/implementation-artifacts/2-4-regeneration-updates-only-tool-created-cues-when-needed.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml
+- src/music_library_sanitzer/cli.py
+- src/music_library_sanitzer/pipeline/planner.py
+- src/music_library_sanitzer/state/provenance.py
+- tests/unit/test_idempotency.py
 
 ### Change Log
 
 - Created story context for regeneration updates and overwrite policy enforcement. (2025-12-23)
+- Implemented regeneration trigger gating and overwrite policy with tests. (2025-12-23)
+- Applied code review fixes for generation_id persistence and verified-provenance guard. (2025-12-23)

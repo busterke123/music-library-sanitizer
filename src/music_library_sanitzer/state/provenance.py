@@ -19,17 +19,27 @@ class ProvenanceCue:
 @dataclass(frozen=True)
 class CueProvenanceIndex:
     tracks: dict[str, tuple[ProvenanceCue, ...]]
+    generation_id: str | None = None
 
-    def to_dict(self) -> dict[str, list[dict[str, object]]]:
+    def to_dict(self) -> dict[str, object]:
         return {
-            track_id: [asdict(cue) for cue in cues]
-            for track_id, cues in self.tracks.items()
+            "generation_id": self.generation_id,
+            "tracks": {
+                track_id: [asdict(cue) for cue in cues]
+                for track_id, cues in self.tracks.items()
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, list[dict[str, object]]]) -> "CueProvenanceIndex":
+    def from_dict(cls, data: dict[str, object]) -> "CueProvenanceIndex":
+        if "tracks" in data:
+            tracks_data = data.get("tracks", {})
+            generation_id = data.get("generation_id")
+        else:
+            tracks_data = data
+            generation_id = None
         tracks: dict[str, tuple[ProvenanceCue, ...]] = {}
-        for track_id, cues in data.items():
+        for track_id, cues in tracks_data.items():
             parsed: list[ProvenanceCue] = []
             for cue in cues:
                 if not isinstance(cue, dict):
@@ -44,7 +54,7 @@ class CueProvenanceIndex:
                     )
                 )
             tracks[track_id] = tuple(parsed)
-        return cls(tracks=tracks)
+        return cls(tracks=tracks, generation_id=generation_id)
 
 
 def merge_provenance_indexes(
@@ -53,7 +63,8 @@ def merge_provenance_indexes(
 ) -> CueProvenanceIndex:
     merged = dict(existing.tracks)
     merged.update(updates.tracks)
-    return CueProvenanceIndex(tracks=merged)
+    generation_id = updates.generation_id or existing.generation_id
+    return CueProvenanceIndex(tracks=merged, generation_id=generation_id)
 
 
 def _provenance_path(state_dir: Path) -> Path:

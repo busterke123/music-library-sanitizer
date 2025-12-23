@@ -36,17 +36,18 @@ def test_apply_idempotency_marks_noop_for_matching_provenance() -> None:
                     source="planner",
                 ),
             )
-        }
+        },
+        generation_id="gen-1",
     )
 
-    updated = apply_idempotency([track], provenance)
+    updated = apply_idempotency([track], provenance, regeneration_trigger=False)
 
     assert updated[0].planned_action.action == "noop"
     assert updated[0].planned_action.reason == "unchanged"
     assert updated[0].cues == ()
 
 
-def test_apply_idempotency_keeps_changes_when_mismatch() -> None:
+def test_apply_idempotency_blocks_changes_without_trigger() -> None:
     track = TrackPlan(
         track_index=1,
         track_id="TRK-1",
@@ -75,10 +76,136 @@ def test_apply_idempotency_keeps_changes_when_mismatch() -> None:
         }
     )
 
-    updated = apply_idempotency([track], provenance)
+    updated = apply_idempotency([track], provenance, regeneration_trigger=False)
+
+    assert updated[0].planned_action.action == "noop"
+    assert updated[0].planned_action.reason == "no_regeneration_trigger"
+    assert updated[0].cues == ()
+
+
+def test_apply_idempotency_allows_updates_with_trigger() -> None:
+    track = TrackPlan(
+        track_index=1,
+        track_id="TRK-1",
+        planned_action=PlannedAction(action="update", reason="add_cue"),
+        cues=(
+            CuePlan(
+                slot=1,
+                start_ms=1500,
+                label="Intro",
+                color="red",
+                source="planner",
+            ),
+            CuePlan(
+                slot=2,
+                start_ms=2000,
+                label="Drop",
+                color="blue",
+                source="planner",
+            ),
+        ),
+    )
+    provenance = CueProvenanceIndex(
+        tracks={
+            "TRK-1": (
+                ProvenanceCue(
+                    slot=1,
+                    start_ms=1000,
+                    label="Intro",
+                    color="red",
+                    source="planner",
+                ),
+            )
+        },
+        generation_id="gen-1",
+    )
+
+    updated = apply_idempotency([track], provenance, regeneration_trigger=True)
 
     assert updated[0].planned_action.action == "update"
-    assert updated[0].cues == track.cues
+    assert updated[0].cues == (
+        CuePlan(
+            slot=1,
+            start_ms=1500,
+            label="Intro",
+            color="red",
+            source="planner",
+        ),
+    )
+
+
+def test_apply_idempotency_drops_non_tool_slots_on_regen() -> None:
+    track = TrackPlan(
+        track_index=1,
+        track_id="TRK-1",
+        planned_action=PlannedAction(action="update", reason="add_cue"),
+        cues=(
+            CuePlan(
+                slot=3,
+                start_ms=2500,
+                label="Outro",
+                color="green",
+                source="planner",
+            ),
+        ),
+    )
+    provenance = CueProvenanceIndex(
+        tracks={
+            "TRK-1": (
+                ProvenanceCue(
+                    slot=1,
+                    start_ms=1000,
+                    label="Intro",
+                    color="red",
+                    source="planner",
+                ),
+            )
+        },
+        generation_id="gen-1",
+    )
+
+    updated = apply_idempotency([track], provenance, regeneration_trigger=True)
+
+    assert updated[0].planned_action.action == "noop"
+    assert updated[0].planned_action.reason == "no_tool_cues_to_update"
+    assert updated[0].cues == ()
+
+
+def test_apply_idempotency_requires_verified_provenance() -> None:
+    track = TrackPlan(
+        track_index=1,
+        track_id="TRK-1",
+        planned_action=PlannedAction(action="update", reason="add_cue"),
+        cues=(
+            CuePlan(
+                slot=1,
+                start_ms=1500,
+                label="Intro",
+                color="red",
+                source="planner",
+            ),
+        ),
+    )
+    provenance = CueProvenanceIndex(
+        tracks={
+            "TRK-1": (
+                ProvenanceCue(
+                    slot=1,
+                    start_ms=1000,
+                    label="Intro",
+                    color="red",
+                    source="planner",
+                ),
+            )
+        },
+        generation_id=None,
+    )
+
+    updated = apply_idempotency([track], provenance, regeneration_trigger=True)
+
+    assert updated[0].planned_action.action == "noop"
+    assert updated[0].planned_action.reason == "provenance_unverified"
+    assert updated[0].cues == ()
 
 
 def test_provenance_index_roundtrip(tmp_path: Path) -> None:
@@ -93,10 +220,39 @@ def test_provenance_index_roundtrip(tmp_path: Path) -> None:
                     source=None,
                 ),
             )
-        }
+        },
+        generation_id="gen-1",
     )
 
     persist_provenance_index(index, base_dir=tmp_path)
     loaded = load_provenance_index(base_dir=tmp_path)
 
     assert loaded == index
+
+
+def test_build_write_plan_persists_generation_id(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MLS_STATE_DIR", str(tmp_path))
+    try:
+        from music_library_sanitzer.cli import _build_write_plan
+        from music_library_sanitzer.config.model import Config
+        from music_library_sanitzer.rekordbox.playlist import ResolvedPlaylist
+
+        config = Config(
+            library_path=Path("/tmp/library.xml"),
+            backup_path=Path("/tmp/backups"),
+            stage_hot_cues=True,
+            stage_energy=False,
+            dry_run=False,
+        )
+        playlist = ResolvedPlaylist(
+            playlist_id="PL-ALPHA",
+            name="Alpha Set",
+            track_count=1,
+            track_ids=("TRK-1",),
+        )
+
+        _build_write_plan(config, playlist)
+        loaded = load_provenance_index(base_dir=tmp_path)
+        assert loaded.generation_id is not None
+    finally:
+        monkeypatch.setenv("MLS_STATE_DIR", "")
