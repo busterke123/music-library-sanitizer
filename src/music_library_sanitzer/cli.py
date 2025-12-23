@@ -6,6 +6,7 @@ from rich.progress import track
 from .config.load import ConfigError, ConfigOverrides, load_config
 from .config.model import DEFAULT_CONFIG_PATH
 from .errors import PlaylistResolutionError
+from .exit_codes import ExitCode, exit_code_for_counts
 from .rekordbox.playlist import resolve_playlist
 from .run_summary import RunCounts, RunStatus, summarize_counts
 
@@ -13,7 +14,7 @@ from .run_summary import RunCounts, RunStatus, summarize_counts
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Scriptable CLI for enriching a Rekordbox library.",
+    help="Scriptable CLI for enriching a Rekordbox library. Exit codes: 0 success, 1 partial success, 2 failure (fail-closed preconditions).",
 )
 
 
@@ -66,7 +67,7 @@ def _main(
         resolved = load_config(config, overrides, explicit=explicit)
     except ConfigError as exc:
         typer.echo(f"Config error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.FAILURE) from exc
 
     ctx.obj = {"config": resolved}
 
@@ -86,7 +87,7 @@ def run(
         resolved = resolve_playlist(config.library_path, playlist_id)
     except PlaylistResolutionError as exc:
         typer.echo(f"Playlist resolution error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.FAILURE) from exc
 
     typer.echo("Playlist Preflight")
     typer.echo("==================")
@@ -98,6 +99,7 @@ def run(
     typer.echo(f"Track Count: {resolved.track_count}")
 
     track_ids = resolved.track_ids
+    has_track_ids = track_ids is not None
     statuses: list[RunStatus] = []
     failure_reasons: list[str] = []
     if track_ids is not None:
@@ -109,7 +111,10 @@ def run(
         iterator, description="Processing tracks", disable=resolved.track_count == 0
     ):
         try:
-            statuses.append("unchanged")
+            if has_track_ids:
+                statuses.append("unchanged")
+            else:
+                statuses.append("skipped")
         except Exception as exc:  # pragma: no cover - defensive for future analysis
             statuses.append("failed")
             if track_ids is not None:
@@ -131,4 +136,5 @@ def run(
     typer.echo(f"Skipped: {counts.skipped}")
     typer.echo(f"Failed: {counts.failed}")
 
-    raise typer.Exit(code=0)
+    exit_code = exit_code_for_counts(counts)
+    raise typer.Exit(code=exit_code)

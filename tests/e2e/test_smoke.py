@@ -75,7 +75,7 @@ def test_run_requires_playlist_id() -> None:
         encoding="utf-8",
         errors="replace",
     )
-    assert result.returncode != 0
+    assert result.returncode == 2
     output = strip_ansi((result.stderr or "") + (result.stdout or ""))
     assert "Missing option '--playlist-id'" in output
 
@@ -118,6 +118,43 @@ def test_run_preflight_output() -> None:
 
 
 @pytest.mark.e2e
+def test_run_partial_success_exit_code() -> None:
+    if importlib.util.find_spec("music_library_sanitzer") is None:
+        pytest.skip("Package not implemented yet (expected early in the project).")
+
+    fixture_path = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "rekordbox-missing-track-ids.xml"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_library_sanitzer",
+            "--library-path",
+            str(fixture_path),
+            "run",
+            "--playlist-id",
+            "PL-MISSING-IDS",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert result.returncode == 1
+    output = strip_ansi((result.stderr or "") + (result.stdout or ""))
+    assert "Playlist Preflight" in output
+    assert "Playlist ID: PL-MISSING-IDS" in output
+    assert "Track Count: 2" in output
+    assert "Run Summary" in output
+    assert "Skipped: 2" in output
+    assert "Failed: 0" in output
+
+
+@pytest.mark.e2e
 def test_run_playlist_resolution_error_nonzero_exit() -> None:
     if importlib.util.find_spec("music_library_sanitzer") is None:
         pytest.skip("Package not implemented yet (expected early in the project).")
@@ -140,7 +177,7 @@ def test_run_playlist_resolution_error_nonzero_exit() -> None:
         encoding="utf-8",
         errors="replace",
     )
-    assert result.returncode != 0
+    assert result.returncode == 2
     output = strip_ansi((result.stderr or "") + (result.stdout or ""))
     assert "Playlist resolution error" in output
     assert "PL-MISSING" in output
