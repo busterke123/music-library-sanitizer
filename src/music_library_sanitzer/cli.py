@@ -13,7 +13,7 @@ from .pipeline.executor import (
     build_write_plan_for_preconditions,
     run_write_preconditions,
 )
-from .rekordbox.backup import create_backup
+from .rekordbox.backup import create_backup, prune_backup_retention
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
@@ -152,6 +152,9 @@ def _run_write_side_effects(
     if not _has_write_changes(preconditions.plan):
         return
     create_backup(config.library_path, config.backup_path)
+    removed = prune_backup_retention(config.backup_path)
+    if removed:
+        typer.echo(f"Pruned backups: {', '.join(removed)}")
     _apply_write_side_effects(config, preconditions)
 
 
