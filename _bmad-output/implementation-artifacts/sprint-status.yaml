@@ -59,7 +59,7 @@ development_status:
   3-2-create-a-pre-write-backup-for-write-runs: done
   3-3-backup-retention-keeps-the-50-most-recent-backups: done
   3-4-list-available-backups: done
-  3-5-restore-from-backup-and-report-verification: backlog
+  3-5-restore-from-backup-and-report-verification: ready-for-dev
   epic-3-retrospective: optional
   epic-4: backlog
   4-1-read-current-hot-cues-for-targeted-tracks: backlog
