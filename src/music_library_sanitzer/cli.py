@@ -8,10 +8,15 @@ from .config.model import Config, DEFAULT_CONFIG_PATH
 from .errors import PlaylistResolutionError
 from .exit_codes import ExitCode, exit_code_for_counts
 from .pipeline.models import CuePlan, TrackPlan, WritePlan
-from .pipeline.planner import build_write_plan
+from .pipeline.planner import build_write_plan, extract_provenance_from_plan
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
+from .state.provenance import (
+    load_provenance_index,
+    merge_provenance_indexes,
+    persist_provenance_index,
+)
 from .state.runs import persist_write_plan
 
 
@@ -26,6 +31,11 @@ def _build_write_plan(config: Config, resolved: ResolvedPlaylist) -> WritePlan:
     try:
         plan = build_write_plan(config, resolved)
         persist_write_plan(plan)
+        updates = extract_provenance_from_plan(plan)
+        if updates.tracks:
+            existing = load_provenance_index()
+            merged = merge_provenance_indexes(existing, updates)
+            persist_provenance_index(merged)
         return plan
     except Exception as exc:  # pragma: no cover - defensive for persistence errors
         typer.echo(f"Write plan error: {exc}", err=True)
