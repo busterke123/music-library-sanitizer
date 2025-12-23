@@ -1,4 +1,4 @@
-# generated: 2025-12-22 22:49:43 CET
+﻿# generated: 2025-12-22 22:49:43 CET
 # project: music-library-sanitzer
 # project_key: mls
 # tracking_system: file-system
@@ -12,8 +12,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog → in-progress: Automatically when first story is created (via create-story)
-#   - in-progress → done: Manually when all stories reach 'done' status
+#   - backlog â†’ in-progress: Automatically when first story is created (via create-story)
+#   - in-progress â†’ done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -47,7 +47,7 @@ development_status:
   1-3-resolve-playlist-by-stable-id-and-preflight-display: done
   1-4-human-readable-progress-and-run-summary: done
   1-5-exit-code-semantics-for-scripting: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
   epic-2: backlog
   2-1-build-a-deterministic-write-plan-from-inputs: backlog
   2-2-dry-run-mode-shows-intended-changes-without-writing: backlog
