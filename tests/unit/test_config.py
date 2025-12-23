@@ -20,8 +20,8 @@ dry_run = true
 
     config = load_config(config_path, ConfigOverrides())
 
-    assert str(config.library_path).endswith("/tmp/rekordbox.xml")
-    assert str(config.backup_path).endswith("/tmp/backups")
+    assert config.library_path.as_posix().endswith("/tmp/rekordbox.xml")
+    assert config.backup_path.as_posix().endswith("/tmp/backups")
     assert config.stage_hot_cues is False
     assert config.dry_run is True
 
@@ -45,7 +45,7 @@ dry_run = false
     )
     config = load_config(config_path, overrides)
 
-    assert str(config.library_path).endswith("/tmp/from-cli.xml")
+    assert config.library_path.as_posix().endswith("/tmp/from-cli.xml")
     assert config.dry_run is True
 
 

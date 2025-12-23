@@ -4,6 +4,8 @@ import typer
 
 from .config.load import ConfigError, ConfigOverrides, load_config
 from .config.model import DEFAULT_CONFIG_PATH
+from .errors import PlaylistResolutionError
+from .rekordbox.playlist import resolve_playlist
 
 
 app = typer.Typer(
@@ -68,6 +70,29 @@ def _main(
 
 
 @app.command()
-def run(ctx: typer.Context) -> None:
+def run(
+    ctx: typer.Context,
+    playlist_id: str = typer.Option(
+        ...,
+        "--playlist-id",
+        help="Stable Rekordbox playlist identifier to resolve.",
+    ),
+) -> None:
     """Placeholder command (foundation-only story)."""
+    config = ctx.obj["config"]
+    try:
+        resolved = resolve_playlist(config.library_path, playlist_id)
+    except PlaylistResolutionError as exc:
+        typer.echo(f"Playlist resolution error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    typer.echo("Playlist Preflight")
+    typer.echo("==================")
+    typer.echo(f"Playlist ID: {resolved.playlist_id}")
+    if resolved.name:
+        typer.echo(f"Playlist Name: {resolved.name}")
+    else:
+        typer.echo("Playlist Name: (unavailable)")
+    typer.echo(f"Track Count: {resolved.track_count}")
+
     raise typer.Exit(code=0)
