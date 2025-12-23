@@ -48,7 +48,7 @@ development_status:
   1-4-human-readable-progress-and-run-summary: done
   1-5-exit-code-semantics-for-scripting: done
   epic-1-retrospective: done
-  epic-2: in-progress
+  epic-2: done
   2-1-build-a-deterministic-write-plan-from-inputs: done
   2-2-dry-run-mode-shows-intended-changes-without-writing: done
   2-3-idempotency-rules-prevent-cue-thrashing-on-reruns: done
@@ -58,7 +58,7 @@ development_status:
   3-1-enforce-fail-closed-preconditions-before-any-write: done
   3-2-create-a-pre-write-backup-for-write-runs: done
   3-3-backup-retention-keeps-the-50-most-recent-backups: done
-  3-4-list-available-backups: backlog
+  3-4-list-available-backups: done
   3-5-restore-from-backup-and-report-verification: backlog
   epic-3-retrospective: optional
   epic-4: backlog

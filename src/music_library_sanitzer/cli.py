@@ -1,3 +1,4 @@
+from datetime import timezone
 from pathlib import Path
 
 import typer
@@ -13,7 +14,7 @@ from .pipeline.executor import (
     build_write_plan_for_preconditions,
     run_write_preconditions,
 )
-from .rekordbox.backup import create_backup, prune_backup_retention
+from .rekordbox.backup import BackupEntry, create_backup, list_backups, prune_backup_retention
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
@@ -110,6 +111,11 @@ def _format_planned_changes(plan: WritePlan) -> list[str]:
 def _render_dry_run(plan: WritePlan) -> None:
     for line in _format_planned_changes(plan):
         typer.echo(line)
+
+
+def _format_backup_entry(entry: BackupEntry) -> str:
+    timestamp = entry.timestamp.astimezone(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"{timestamp} {entry.identifier}"
 
 
 def _statuses_from_plan(plan: WritePlan) -> tuple[list[RunStatus], list[str]]:
@@ -229,6 +235,24 @@ def _main(
         raise typer.Exit(code=ExitCode.FAILURE) from exc
 
     ctx.obj = {"config": resolved}
+
+
+@app.command()
+def backups(ctx: typer.Context) -> None:
+    """List available backups."""
+    config = ctx.obj["config"]
+    try:
+        entries = list_backups(config.backup_path)
+    except PreconditionFailure as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=ExitCode.FAILURE) from exc
+
+    if not entries:
+        typer.echo("No backups found.")
+        return
+
+    for entry in entries:
+        typer.echo(_format_backup_entry(entry))
 
 
 @app.command()

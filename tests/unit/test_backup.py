@@ -135,8 +135,8 @@ def test_list_backup_directories_falls_back_to_mtime_for_unparseable(
     os.utime(
         unparseable,
         (
-            (base_time + timedelta(seconds=10)).timestamp(),
-            (base_time + timedelta(seconds=10)).timestamp(),
+            (base_time + timedelta(hours=2)).timestamp(),
+            (base_time + timedelta(hours=2)).timestamp(),
         ),
     )
 
@@ -144,6 +144,107 @@ def test_list_backup_directories_falls_back_to_mtime_for_unparseable(
 
     assert names[0] == "backup-foo"
     assert names[1] == "20250101-010203"
+
+
+def test_list_backups_orders_newest_first_with_suffix(tmp_path) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+
+    (backup_root / "20241231-235959").mkdir()
+    (backup_root / "20250101-010203").mkdir()
+    (backup_root / "20250101-010203-1").mkdir()
+
+    entries = backup.list_backups(backup_root)
+
+    identifiers = [entry.identifier for entry in entries]
+
+    assert identifiers[0] == "20250101-010203-1"
+    assert identifiers[1] == "20250101-010203"
+    assert identifiers[-1] == "20241231-235959"
+
+
+def test_list_backups_falls_back_to_mtime_for_unparseable(tmp_path) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+
+    parseable = backup_root / "20250101-010203"
+    unparseable = backup_root / "backup-foo"
+    parseable.mkdir()
+    unparseable.mkdir()
+
+    base_time = datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc)
+    os.utime(parseable, (base_time.timestamp(), base_time.timestamp()))
+    os.utime(
+        unparseable,
+        (
+            (base_time + timedelta(hours=2)).timestamp(),
+            (base_time + timedelta(hours=2)).timestamp(),
+        ),
+    )
+
+    entries = backup.list_backups(backup_root)
+
+    assert entries[0].identifier == "backup-foo"
+    assert entries[1].identifier == "20250101-010203"
+    assert entries[0].timestamp == base_time + timedelta(hours=2)
+
+
+def test_list_backups_missing_directory_returns_empty(tmp_path) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    missing = tmp_path / "missing-backups"
+
+    assert backup.list_backups(missing) == []
+
+
+def test_list_backups_mtime_failure_raises_precondition_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+    unparseable = backup_root / "backup-foo"
+    unparseable.mkdir()
+
+    original_stat = backup.Path.stat
+
+    def boom(path: Path):
+        if path == unparseable:
+            raise OSError("nope")
+        return original_stat(path)
+
+    monkeypatch.setattr(backup.Path, "stat", boom)
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        backup.list_backups(backup_root)
+
+    assert excinfo.value.stage == "list_backups"
+
+
+def test_list_backups_access_error_raises_precondition_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+
+    def boom(_: Path):
+        raise OSError("nope")
+
+    monkeypatch.setattr(backup.Path, "iterdir", boom)
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        backup.list_backups(backup_root)
+
+    assert excinfo.value.stage == "list_backups"
 
 
 def test_prune_backup_retention_keeps_newest_50(tmp_path) -> None:
@@ -354,3 +455,80 @@ def test_run_write_side_effects_logs_pruned_backups(
 
     output = capsys.readouterr().out
     assert "Pruned backups: 20240101-000000, 20240102-000000" in output
+
+
+def test_backups_command_outputs_entries(monkeypatch, capsys) -> None:
+    import music_library_sanitzer.cli as cli
+    from music_library_sanitzer.rekordbox.backup import BackupEntry
+
+    config = Config(
+        library_path=Path("/tmp/library.xml"),
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=False,
+    )
+    entries = [
+        BackupEntry(
+            identifier="20250101-010203-1",
+            timestamp=datetime(2025, 1, 1, 1, 2, 3, tzinfo=timezone.utc),
+            path=Path("/tmp/backups/20250101-010203-1"),
+        ),
+        BackupEntry(
+            identifier="20250101-010203",
+            timestamp=datetime(2025, 1, 1, 1, 2, 3, tzinfo=timezone.utc),
+            path=Path("/tmp/backups/20250101-010203"),
+        ),
+    ]
+
+    def fake_list_backups(_: Path):
+        return entries
+
+    monkeypatch.setattr(cli, "list_backups", fake_list_backups)
+
+    cli.backups(_dummy_context(config))
+
+    output = capsys.readouterr().out.strip().splitlines()
+    assert output[0] == "20250101-010203 20250101-010203-1"
+    assert output[1] == "20250101-010203 20250101-010203"
+
+
+def test_backups_command_no_backups_message(monkeypatch, capsys) -> None:
+    import music_library_sanitzer.cli as cli
+
+    config = Config(
+        library_path=Path("/tmp/library.xml"),
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=False,
+    )
+
+    monkeypatch.setattr(cli, "list_backups", lambda _: [])
+
+    cli.backups(_dummy_context(config))
+
+    output = capsys.readouterr().out.strip()
+    assert output == "No backups found."
+
+
+def test_backups_command_failure_exits_failure(monkeypatch, capsys) -> None:
+    import music_library_sanitzer.cli as cli
+
+    config = Config(
+        library_path=Path("/tmp/library.xml"),
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=False,
+    )
+
+    def boom(_: Path):
+        raise PreconditionFailure("Backup listing failed", stage="list_backups")
+
+    monkeypatch.setattr(cli, "list_backups", boom)
+
+    with pytest.raises(typer.Exit) as excinfo:
+        cli.backups(_dummy_context(config))
+
+    assert excinfo.value.exit_code == ExitCode.FAILURE

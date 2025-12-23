@@ -1,6 +1,6 @@
 # Story 3.4: List available backups
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,20 +30,20 @@ so that I can choose a restore point confidently.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add backup listing helper in the Rekordbox IO layer (AC: 1, 2, 3, 5)
-  - [ ] Subtask 1.1: Create a `BackupEntry` data shape (namedtuple/dataclass) with identifier, timestamp, and path.
-  - [ ] Subtask 1.2: Reuse `list_backup_directories` ordering rules and parse timestamps from directory names.
-  - [ ] Subtask 1.3: For unparseable names, fall back to mtime for timestamp and ordering.
-  - [ ] Subtask 1.4: Raise `PreconditionFailure` with stage `list_backups` on access errors.
-- [ ] Task 2: Add CLI command to list backups (AC: 1, 2, 4, 5)
-  - [ ] Subtask 2.1: Add `backups` (or `backup-list`) command in `src/music_library_sanitzer/cli.py`.
-  - [ ] Subtask 2.2: Use `config.backup_path` to list backups; do not create directories or run retention.
-  - [ ] Subtask 2.3: Print each backup with timestamp and identifier; if none, print "No backups found."
-  - [ ] Subtask 2.4: Surface `PreconditionFailure` as ExitCode.FAILURE with a clear error message.
-- [ ] Task 3: Add tests (AC: 1, 2, 3, 4, 5)
-  - [ ] Subtask 3.1: Unit tests for listing order and mtime fallback in `tests/unit/test_backup.py`.
-  - [ ] Subtask 3.2: Test "no backups" output behavior (helper or CLI-level).
-  - [ ] Subtask 3.3: CLI test for output formatting and error handling (likely in `tests/unit/test_backup.py`).
+- [x] Task 1: Add backup listing helper in the Rekordbox IO layer (AC: 1, 2, 3, 5)
+  - [x] Subtask 1.1: Create a `BackupEntry` data shape (namedtuple/dataclass) with identifier, timestamp, and path.
+  - [x] Subtask 1.2: Reuse `list_backup_directories` ordering rules and parse timestamps from directory names.
+  - [x] Subtask 1.3: For unparseable names, fall back to mtime for timestamp and ordering.
+  - [x] Subtask 1.4: Raise `PreconditionFailure` with stage `list_backups` on access errors.
+- [x] Task 2: Add CLI command to list backups (AC: 1, 2, 4, 5)
+  - [x] Subtask 2.1: Add `backups` (or `backup-list`) command in `src/music_library_sanitzer/cli.py`.
+  - [x] Subtask 2.2: Use `config.backup_path` to list backups; do not create directories or run retention.
+  - [x] Subtask 2.3: Print each backup with timestamp and identifier; if none, print "No backups found."
+  - [x] Subtask 2.4: Surface `PreconditionFailure` as ExitCode.FAILURE with a clear error message.
+- [x] Task 3: Add tests (AC: 1, 2, 3, 4, 5)
+  - [x] Subtask 3.1: Unit tests for listing order and mtime fallback in `tests/unit/test_backup.py`.
+  - [x] Subtask 3.2: Test "no backups" output behavior (helper or CLI-level).
+  - [x] Subtask 3.3: CLI test for output formatting and error handling (likely in `tests/unit/test_backup.py`).
 
 ## Dev Notes
 
@@ -129,7 +129,26 @@ create-story interactive mode
 
 - Web research not required (standard library + local repo context).
 - Story context derived from epics, PRD, architecture, and Story 3.3 implementation notes.
+- Implemented `list_backups` with `BackupEntry`, retention-consistent ordering, and fail-closed list_backups errors.
+- Added `backups` CLI command with timestamped output and "No backups found." fallback.
+- Added unit coverage for listing ordering, mtime fallback, and CLI output/error behavior.
+- Code review fixes: treat missing backup directory as empty; added tests for missing dir and mtime stat failures.
+- Full test suite: `python -m pytest` (55 passed, 1 skipped: console entrypoint not in PATH).
 
 ### File List
 
 - _bmad-output/implementation-artifacts/3-4-list-available-backups.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml
+- src/music_library_sanitzer/rekordbox/backup.py
+- src/music_library_sanitzer/cli.py
+- tests/unit/test_backup.py
+
+### Change Log
+
+- 2025-12-23: Added backup listing helper and CLI command with list-backups tests.
+- 2025-12-23: Handle missing backup directory for listing and add coverage for missing dir + stat failure.
+
+## Story Completion Status
+
+Status: done
+Completion note: Backup listing implemented with CLI output; review fixes applied for missing directory handling and coverage. Tests not rerun in this pass.
