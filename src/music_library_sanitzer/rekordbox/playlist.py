@@ -20,7 +20,7 @@ class ResolvedPlaylist:
     playlist_id: str
     name: str | None
     track_count: int
-    track_ids: tuple[str, ...] | None = None
+    track_ids: tuple[str | None, ...]
 
 
 def _first_attr(elem: ET.Element, keys: Iterable[str]) -> str | None:
@@ -46,8 +46,7 @@ def resolve_playlist(library_path: Path, playlist_id: str) -> ResolvedPlaylist:
         )
 
     track_count = 0
-    track_ids: list[str] = []
-    track_ids_complete = True
+    track_ids: list[str | None] = []
     matched = False
     playlist_elem: ET.Element | None = None
     playlist_name: str | None = None
@@ -64,10 +63,7 @@ def resolve_playlist(library_path: Path, playlist_id: str) -> ResolvedPlaylist:
                 elif matched and elem.tag in _TRACK_TAGS:
                     track_count += 1
                     track_id = _first_attr(elem, _TRACK_ID_KEYS)
-                    if track_id is not None:
-                        track_ids.append(track_id)
-                    else:
-                        track_ids_complete = False
+                    track_ids.append(track_id)
 
             if event == "end":
                 if matched and playlist_elem is elem:
@@ -75,11 +71,7 @@ def resolve_playlist(library_path: Path, playlist_id: str) -> ResolvedPlaylist:
                         playlist_id=playlist_id,
                         name=playlist_name,
                         track_count=track_count,
-                        track_ids=(
-                            tuple(track_ids)
-                            if track_ids and track_ids_complete
-                            else None
-                        ),
+                        track_ids=tuple(track_ids),
                     )
                 elem.clear()
     except ET.ParseError as exc:

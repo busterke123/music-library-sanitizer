@@ -62,6 +62,36 @@ def test_console_entrypoint_help_runs() -> None:
     assert "run" in output
     assert "--config" in output
 
+
+@pytest.mark.e2e
+def test_config_error_exit_code(tmp_path: Path) -> None:
+    if importlib.util.find_spec("music_library_sanitzer") is None:
+        pytest.skip("Package not implemented yet (expected early in the project).")
+
+    missing_config = tmp_path / "missing.toml"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_library_sanitzer",
+            "--config",
+            str(missing_config),
+            "run",
+            "--playlist-id",
+            "PL-ALPHA",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert result.returncode == 2
+    output = strip_ansi((result.stderr or "") + (result.stdout or ""))
+    assert "Config error" in output
+    assert "Config file not found" in output
+
+
 @pytest.mark.e2e
 def test_run_requires_playlist_id() -> None:
     if importlib.util.find_spec("music_library_sanitzer") is None:

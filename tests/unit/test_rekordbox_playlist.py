@@ -72,7 +72,7 @@ def test_resolve_playlist_invalid_xml_raises(tmp_path: Path) -> None:
         resolve_playlist(xml_path, "PL1")
 
 
-def test_resolve_playlist_missing_track_ids_sets_none(tmp_path: Path) -> None:
+def test_resolve_playlist_missing_track_ids_preserves_entries(tmp_path: Path) -> None:
     xml_path = _write_xml(
         tmp_path / "rekordbox.xml",
         """
@@ -91,7 +91,7 @@ def test_resolve_playlist_missing_track_ids_sets_none(tmp_path: Path) -> None:
     resolved = resolve_playlist(xml_path, "PL1")
 
     assert resolved.track_count == 2
-    assert resolved.track_ids is None
+    assert resolved.track_ids == (None, "2")
 
 
 def test_resolve_playlist_ignores_folder_nodes(tmp_path: Path) -> None:

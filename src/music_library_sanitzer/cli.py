@@ -99,28 +99,22 @@ def run(
     typer.echo(f"Track Count: {resolved.track_count}")
 
     track_ids = resolved.track_ids
-    has_track_ids = track_ids is not None
     statuses: list[RunStatus] = []
     failure_reasons: list[str] = []
-    if track_ids is not None:
-        iterator = enumerate(track_ids, start=1)
-    else:
-        iterator = enumerate(range(resolved.track_count), start=1)
-
     for index, track_id in track(
-        iterator, description="Processing tracks", disable=resolved.track_count == 0
+        enumerate(track_ids, start=1),
+        description="Processing tracks",
+        disable=resolved.track_count == 0,
     ):
         try:
-            if has_track_ids:
+            if track_id is not None:
                 statuses.append("unchanged")
             else:
                 statuses.append("skipped")
+                failure_reasons.append(f"Track #{index}: missing track id")
         except Exception as exc:  # pragma: no cover - defensive for future analysis
             statuses.append("failed")
-            if track_ids is not None:
-                failure_reasons.append(f"Track {track_id}: {exc}")
-            else:
-                failure_reasons.append(f"Track #{index}: {exc}")
+            failure_reasons.append(f"Track #{index}: {exc}")
 
     if failure_reasons:
         for reason in failure_reasons:

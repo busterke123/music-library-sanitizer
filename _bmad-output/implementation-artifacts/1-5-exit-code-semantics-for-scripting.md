@@ -1,6 +1,6 @@
 # Story 1.5: Exit code semantics for scripting
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -89,11 +89,13 @@ GPT-5.2 (Codex CLI)
 - CLI now exits with mapped codes; fail-closed errors use the failure code.
 - Mark missing track IDs as skipped, enabling deterministic partial-success exits.
 - Added E2E coverage for partial success and updated failure exit code assertion.
+- Code review fixes: preserve per-track IDs when some are missing and add config error E2E coverage.
 
 ### File List
 
 - src/music_library_sanitzer/exit_codes.py
 - src/music_library_sanitzer/cli.py
+- src/music_library_sanitzer/rekordbox/playlist.py
 - tests/e2e/test_smoke.py
 - tests/unit/test_exit_codes.py
 - tests/fixtures/rekordbox-missing-track-ids.xml
