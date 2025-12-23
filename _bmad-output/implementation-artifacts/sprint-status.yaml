@@ -45,7 +45,7 @@ development_status:
   1-1-set-up-initial-project-from-starter-template-uv-typer: done
   1-2-load-config-file-and-apply-cli-overrides: done
   1-3-resolve-playlist-by-stable-id-and-preflight-display: done
-  1-4-human-readable-progress-and-run-summary: backlog
+  1-4-human-readable-progress-and-run-summary: done
   1-5-exit-code-semantics-for-scripting: backlog
   epic-1-retrospective: optional
   epic-2: backlog
@@ -79,5 +79,6 @@ development_status:
   6-3-provider-adapter-interface-and-opt-in-network-behavior: backlog
   6-4-provider-caching-capability-for-repeated-runs: backlog
   epic-6-retrospective: optional
+
 
 

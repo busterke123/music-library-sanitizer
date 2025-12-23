@@ -109,6 +109,12 @@ def test_run_preflight_output() -> None:
     assert "Playlist ID: PL-ALPHA" in output
     assert "Playlist Name: Alpha Set" in output
     assert "Track Count: 2" in output
+    assert "Run Summary" in output
+    assert "Processed: 2" in output
+    assert "Updated: 0" in output
+    assert "Unchanged: 2" in output
+    assert "Skipped: 0" in output
+    assert "Failed: 0" in output
 
 
 @pytest.mark.e2e

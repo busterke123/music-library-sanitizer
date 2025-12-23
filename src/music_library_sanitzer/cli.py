@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import typer
+from rich.progress import track
 
 from .config.load import ConfigError, ConfigOverrides, load_config
 from .config.model import DEFAULT_CONFIG_PATH
 from .errors import PlaylistResolutionError
 from .rekordbox.playlist import resolve_playlist
+from .run_summary import RunCounts, RunStatus, summarize_counts
 
 
 app = typer.Typer(
@@ -94,5 +96,39 @@ def run(
     else:
         typer.echo("Playlist Name: (unavailable)")
     typer.echo(f"Track Count: {resolved.track_count}")
+
+    track_ids = resolved.track_ids
+    statuses: list[RunStatus] = []
+    failure_reasons: list[str] = []
+    if track_ids is not None:
+        iterator = enumerate(track_ids, start=1)
+    else:
+        iterator = enumerate(range(resolved.track_count), start=1)
+
+    for index, track_id in track(
+        iterator, description="Processing tracks", disable=resolved.track_count == 0
+    ):
+        try:
+            statuses.append("unchanged")
+        except Exception as exc:  # pragma: no cover - defensive for future analysis
+            statuses.append("failed")
+            if track_ids is not None:
+                failure_reasons.append(f"Track {track_id}: {exc}")
+            else:
+                failure_reasons.append(f"Track #{index}: {exc}")
+
+    if failure_reasons:
+        for reason in failure_reasons:
+            typer.echo(f"Track error: {reason}", err=True)
+
+    counts: RunCounts = summarize_counts(statuses)
+    typer.echo("")
+    typer.echo("Run Summary")
+    typer.echo("===========")
+    typer.echo(f"Processed: {counts.processed}")
+    typer.echo(f"Updated: {counts.updated}")
+    typer.echo(f"Unchanged: {counts.unchanged}")
+    typer.echo(f"Skipped: {counts.skipped}")
+    typer.echo(f"Failed: {counts.failed}")
 
     raise typer.Exit(code=0)
