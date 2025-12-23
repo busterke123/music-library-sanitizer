@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from music_library_sanitzer.cli import _plan_then_process
+import music_library_sanitzer.cli as cli
 from music_library_sanitzer.config.model import Config
 from music_library_sanitzer.pipeline.planner import build_write_plan
 from music_library_sanitzer.rekordbox.playlist import ResolvedPlaylist
@@ -87,8 +87,10 @@ def test_planner_runs_before_processing() -> None:
 
     planned = {"value": False}
 
-    def fake_build_write_plan(_: Config, __: ResolvedPlaylist) -> None:
+    def fake_run_write_preconditions(_: Config, __: str) -> cli.PreconditionResult:
         planned["value"] = True
+        plan = build_write_plan(config, playlist)
+        return cli.PreconditionResult(resolved=playlist, plan=plan)
 
     def fake_compute_track_statuses(
         _: ResolvedPlaylist,
@@ -96,14 +98,12 @@ def test_planner_runs_before_processing() -> None:
         assert planned["value"] is True
         return (["unchanged"], [])
 
-    import music_library_sanitzer.cli as cli
-
-    original_build = cli._build_write_plan
+    original_run = cli.run_write_preconditions
     original_compute = cli._compute_track_statuses
-    cli._build_write_plan = fake_build_write_plan
+    cli.run_write_preconditions = fake_run_write_preconditions
     cli._compute_track_statuses = fake_compute_track_statuses
     try:
-        _plan_then_process(config, playlist)
+        cli._execute_write_run(config, playlist.playlist_id)
     finally:
-        cli._build_write_plan = original_build
+        cli.run_write_preconditions = original_run
         cli._compute_track_statuses = original_compute

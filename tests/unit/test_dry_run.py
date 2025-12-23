@@ -91,7 +91,7 @@ def test_execute_run_dry_run_builds_plan_and_skips_processing() -> None:
         track_ids=("TRK-1",),
     )
 
-    calls = {"build": False, "render": False, "process": False}
+    calls = {"build": False, "render": False, "side_effects": False}
 
     def fake_build_write_plan(_: Config, __: ResolvedPlaylist) -> WritePlan:
         calls["build"] = True
@@ -100,25 +100,24 @@ def test_execute_run_dry_run_builds_plan_and_skips_processing() -> None:
     def fake_render_dry_run(_: WritePlan) -> None:
         calls["render"] = True
 
-    def fake_plan_then_process(
-        _: Config, __: ResolvedPlaylist
-    ) -> tuple[list[str], list[str]]:
-        calls["process"] = True
-        return ([], [])
+    def fake_run_write_side_effects(
+        _: Config, __: cli.PreconditionResult
+    ) -> None:
+        calls["side_effects"] = True
 
-    original_build = cli._build_write_plan
+    original_build = cli.build_write_plan_with_provenance
     original_render = cli._render_dry_run
-    original_process = cli._plan_then_process
-    cli._build_write_plan = fake_build_write_plan
+    original_side_effects = cli._run_write_side_effects
+    cli.build_write_plan_with_provenance = fake_build_write_plan
     cli._render_dry_run = fake_render_dry_run
-    cli._plan_then_process = fake_plan_then_process
+    cli._run_write_side_effects = fake_run_write_side_effects
     try:
-        statuses, reasons = cli._execute_run(config, playlist)
+        statuses, reasons = cli._execute_dry_run(config, playlist)
     finally:
-        cli._build_write_plan = original_build
+        cli.build_write_plan_with_provenance = original_build
         cli._render_dry_run = original_render
-        cli._plan_then_process = original_process
+        cli._run_write_side_effects = original_side_effects
 
     assert statuses == ["updated", "unchanged"]
     assert reasons == []
-    assert calls == {"build": True, "render": True, "process": False}
+    assert calls == {"build": True, "render": True, "side_effects": False}

@@ -5,23 +5,17 @@ from rich.progress import track
 
 from .config.load import ConfigError, ConfigOverrides, load_config
 from .config.model import Config, DEFAULT_CONFIG_PATH
-from .errors import PlaylistResolutionError
+from .errors import PlaylistResolutionError, PreconditionFailure
 from .exit_codes import ExitCode, exit_code_for_counts
 from .pipeline.models import CuePlan, TrackPlan, WritePlan
-from .pipeline.planner import (
-    build_write_plan,
-    current_generation_id,
-    extract_provenance_from_plan,
+from .pipeline.executor import (
+    PreconditionResult,
+    build_write_plan_with_provenance,
+    run_write_preconditions,
 )
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
-from .state.provenance import (
-    load_provenance_index,
-    merge_provenance_indexes,
-    persist_provenance_index,
-)
-from .state.runs import persist_write_plan
 
 
 app = typer.Typer(
@@ -29,25 +23,6 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Scriptable CLI for enriching a Rekordbox library. Exit codes: 0 success, 1 partial success, 2 failure (fail-closed preconditions).",
 )
-
-
-def _build_write_plan(config: Config, resolved: ResolvedPlaylist) -> WritePlan:
-    try:
-        plan = build_write_plan(config, resolved)
-        persist_write_plan(plan)
-        generation_id = current_generation_id(config)
-        updates = extract_provenance_from_plan(
-            plan,
-            generation_id=generation_id,
-        )
-        existing = load_provenance_index()
-        merged = merge_provenance_indexes(existing, updates)
-        if merged.generation_id != existing.generation_id or updates.tracks:
-            persist_provenance_index(merged)
-        return plan
-    except Exception as exc:  # pragma: no cover - defensive for persistence errors
-        typer.echo(f"Write plan error: {exc}", err=True)
-        raise typer.Exit(code=ExitCode.FAILURE) from exc
 
 
 def _compute_track_statuses(
@@ -72,14 +47,6 @@ def _compute_track_statuses(
             failure_reasons.append(f"Track #{index}: {exc}")
 
     return statuses, failure_reasons
-
-
-def _plan_then_process(
-    config: Config,
-    resolved: ResolvedPlaylist,
-) -> tuple[list[RunStatus], list[str]]:
-    _build_write_plan(config, resolved)
-    return _compute_track_statuses(resolved)
 
 
 def _format_cue_plan(cue: CuePlan) -> str:
@@ -164,15 +131,30 @@ def _statuses_from_plan(plan: WritePlan) -> tuple[list[RunStatus], list[str]]:
     return statuses, failure_reasons
 
 
-def _execute_run(
+def _run_write_side_effects(
+    _config: Config,
+    _preconditions: PreconditionResult,
+) -> None:
+    return
+
+
+def _execute_dry_run(
     config: Config,
     resolved: ResolvedPlaylist,
 ) -> tuple[list[RunStatus], list[str]]:
-    if config.dry_run:
-        plan = _build_write_plan(config, resolved)
-        _render_dry_run(plan)
-        return _statuses_from_plan(plan)
-    return _plan_then_process(config, resolved)
+    plan = build_write_plan_with_provenance(config, resolved)
+    _render_dry_run(plan)
+    return _statuses_from_plan(plan)
+
+
+def _execute_write_run(
+    config: Config,
+    playlist_id: str,
+) -> tuple[ResolvedPlaylist, list[RunStatus], list[str]]:
+    preconditions = run_write_preconditions(config, playlist_id)
+    _run_write_side_effects(config, preconditions)
+    statuses, failure_reasons = _compute_track_statuses(preconditions.resolved)
+    return preconditions.resolved, statuses, failure_reasons
 
 
 @app.callback()
@@ -240,12 +222,21 @@ def run(
 ) -> None:
     """Placeholder command (foundation-only story)."""
     config = ctx.obj["config"]
-    try:
-        resolved = resolve_playlist(config.library_path, playlist_id)
-    except PlaylistResolutionError as exc:
-        typer.echo(f"Playlist resolution error: {exc}", err=True)
-        raise typer.Exit(code=ExitCode.FAILURE) from exc
-    statuses, failure_reasons = _execute_run(config, resolved)
+    if config.dry_run:
+        try:
+            resolved = resolve_playlist(config.library_path, playlist_id)
+        except PlaylistResolutionError as exc:
+            typer.echo(f"Playlist resolution error: {exc}", err=True)
+            raise typer.Exit(code=ExitCode.FAILURE) from exc
+        statuses, failure_reasons = _execute_dry_run(config, resolved)
+    else:
+        try:
+            resolved, statuses, failure_reasons = _execute_write_run(
+                config, playlist_id
+            )
+        except PreconditionFailure as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.FAILURE) from exc
 
     typer.echo("Playlist Preflight")
     typer.echo("==================")

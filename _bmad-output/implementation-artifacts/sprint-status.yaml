@@ -1,4 +1,4 @@
-# generated: 2025-12-23 14:03:39 CET
+﻿# generated: 2025-12-23 14:03:39 CET
 # project: music-library-sanitzer
 # project_key: mls
 # tracking_system: file-system
@@ -54,8 +54,8 @@ development_status:
   2-3-idempotency-rules-prevent-cue-thrashing-on-reruns: done
   2-4-regeneration-updates-only-tool-created-cues-when-needed: done
   epic-2-retrospective: optional
-  epic-3: backlog
-  3-1-enforce-fail-closed-preconditions-before-any-write: backlog
+  epic-3: in-progress
+  3-1-enforce-fail-closed-preconditions-before-any-write: done
   3-2-create-a-pre-write-backup-for-write-runs: backlog
   3-3-backup-retention-keeps-the-50-most-recent-backups: backlog
   3-4-list-available-backups: backlog
@@ -79,3 +79,4 @@ development_status:
   6-3-provider-adapter-interface-and-opt-in-network-behavior: backlog
   6-4-provider-caching-capability-for-repeated-runs: backlog
   epic-6-retrospective: optional
+
