@@ -4,11 +4,15 @@ import typer
 from rich.progress import track
 
 from .config.load import ConfigError, ConfigOverrides, load_config
-from .config.model import DEFAULT_CONFIG_PATH
+from .config.model import Config, DEFAULT_CONFIG_PATH
 from .errors import PlaylistResolutionError
 from .exit_codes import ExitCode, exit_code_for_counts
+from .pipeline.models import CuePlan, TrackPlan, WritePlan
+from .pipeline.planner import build_write_plan
 from .rekordbox.playlist import resolve_playlist
+from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
+from .state.runs import persist_write_plan
 
 
 app = typer.Typer(
@@ -16,6 +20,141 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Scriptable CLI for enriching a Rekordbox library. Exit codes: 0 success, 1 partial success, 2 failure (fail-closed preconditions).",
 )
+
+
+def _build_write_plan(config: Config, resolved: ResolvedPlaylist) -> WritePlan:
+    try:
+        plan = build_write_plan(config, resolved)
+        persist_write_plan(plan)
+        return plan
+    except Exception as exc:  # pragma: no cover - defensive for persistence errors
+        typer.echo(f"Write plan error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILURE) from exc
+
+
+def _compute_track_statuses(
+    resolved: ResolvedPlaylist,
+) -> tuple[list[RunStatus], list[str]]:
+    statuses: list[RunStatus] = []
+    failure_reasons: list[str] = []
+
+    for index, track_id in track(
+        enumerate(resolved.track_ids, start=1),
+        description="Processing tracks",
+        disable=resolved.track_count == 0,
+    ):
+        try:
+            if track_id is not None:
+                statuses.append("unchanged")
+            else:
+                statuses.append("skipped")
+                failure_reasons.append(f"Track #{index}: missing track id")
+        except Exception as exc:  # pragma: no cover - defensive for future analysis
+            statuses.append("failed")
+            failure_reasons.append(f"Track #{index}: {exc}")
+
+    return statuses, failure_reasons
+
+
+def _plan_then_process(
+    config: Config,
+    resolved: ResolvedPlaylist,
+) -> tuple[list[RunStatus], list[str]]:
+    _build_write_plan(config, resolved)
+    return _compute_track_statuses(resolved)
+
+
+def _format_cue_plan(cue: CuePlan) -> str:
+    details = [f"slot={cue.slot}"]
+    if cue.start_ms is not None:
+        details.append(f"start_ms={cue.start_ms}")
+    if cue.label is not None:
+        details.append(f"label={cue.label}")
+    if cue.color is not None:
+        details.append(f"color={cue.color}")
+    if cue.source is not None:
+        details.append(f"source={cue.source}")
+    return ", ".join(details)
+
+
+def _is_planned_change(action: str) -> bool:
+    return action not in {"noop", "skip"}
+
+
+def _format_track_plan(track: TrackPlan) -> list[str]:
+    track_label = f"Track #{track.track_index}"
+    if track.track_id:
+        track_label = f"{track_label} ({track.track_id})"
+    action = track.planned_action.action
+    if track.planned_action.reason:
+        action = f"{action} ({track.planned_action.reason})"
+    if not track.cues:
+        return [f"{track_label}: {action}; cues: none"]
+
+    lines = [f"{track_label}: {action}; cues:"]
+    lines.extend(f"- {_format_cue_plan(cue)}" for cue in track.cues)
+    return lines
+
+
+def _format_planned_changes(plan: WritePlan) -> list[str]:
+    lines = [
+        "Dry Run Planned Changes",
+        "=======================",
+        f"Playlist ID: {plan.playlist_id}",
+        f"Track Count: {plan.track_count}",
+    ]
+    if plan.playlist_name:
+        lines.insert(3, f"Playlist Name: {plan.playlist_name}")
+    else:
+        lines.insert(3, "Playlist Name: (unavailable)")
+    lines.append("")
+    planned_changes = [
+        track
+        for track in plan.tracks
+        if _is_planned_change(track.planned_action.action)
+    ]
+    if not planned_changes:
+        lines.append("No planned changes.")
+        return lines
+    for track in planned_changes:
+        lines.extend(_format_track_plan(track))
+    return lines
+
+
+def _render_dry_run(plan: WritePlan) -> None:
+    for line in _format_planned_changes(plan):
+        typer.echo(line)
+
+
+def _statuses_from_plan(plan: WritePlan) -> tuple[list[RunStatus], list[str]]:
+    statuses: list[RunStatus] = []
+    failure_reasons: list[str] = []
+    for track in plan.tracks:
+        action = track.planned_action.action
+        if action == "skip":
+            statuses.append("skipped")
+            if track.planned_action.reason:
+                failure_reasons.append(
+                    f"Track #{track.track_index}: {track.planned_action.reason}"
+                )
+            else:
+                failure_reasons.append(f"Track #{track.track_index}: skipped")
+        elif action == "noop":
+            statuses.append("unchanged")
+        else:
+            statuses.append("updated")
+    return statuses, failure_reasons
+
+
+def _execute_run(
+    config: Config,
+    resolved: ResolvedPlaylist,
+) -> tuple[list[RunStatus], list[str]]:
+    if config.dry_run:
+        plan = _build_write_plan(config, resolved)
+        _render_dry_run(plan)
+        return _statuses_from_plan(plan)
+    return _plan_then_process(config, resolved)
 
 
 @app.callback()
@@ -88,6 +227,7 @@ def run(
     except PlaylistResolutionError as exc:
         typer.echo(f"Playlist resolution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILURE) from exc
+    statuses, failure_reasons = _execute_run(config, resolved)
 
     typer.echo("Playlist Preflight")
     typer.echo("==================")
@@ -97,24 +237,6 @@ def run(
     else:
         typer.echo("Playlist Name: (unavailable)")
     typer.echo(f"Track Count: {resolved.track_count}")
-
-    track_ids = resolved.track_ids
-    statuses: list[RunStatus] = []
-    failure_reasons: list[str] = []
-    for index, track_id in track(
-        enumerate(track_ids, start=1),
-        description="Processing tracks",
-        disable=resolved.track_count == 0,
-    ):
-        try:
-            if track_id is not None:
-                statuses.append("unchanged")
-            else:
-                statuses.append("skipped")
-                failure_reasons.append(f"Track #{index}: missing track id")
-        except Exception as exc:  # pragma: no cover - defensive for future analysis
-            statuses.append("failed")
-            failure_reasons.append(f"Track #{index}: {exc}")
 
     if failure_reasons:
         for reason in failure_reasons:

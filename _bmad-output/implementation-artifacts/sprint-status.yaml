@@ -1,8 +1,8 @@
-﻿# generated: 2025-12-22 22:49:43 CET
+# generated: 2025-12-23 14:03:39 CET
 # project: music-library-sanitzer
 # project_key: mls
 # tracking_system: file-system
-# story_location: _bmad-output/implementation-artifacts
+# story_location: {project-root}/_bmad-output/implementation-artifacts
 
 # STATUS DEFINITIONS:
 # ==================
@@ -12,8 +12,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog â†’ in-progress: Automatically when first story is created (via create-story)
-#   - in-progress â†’ done: Manually when all stories reach 'done' status
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -33,11 +33,11 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2025-12-22 22:49:43 CET
+generated: 2025-12-23 14:03:39 CET
 project: music-library-sanitzer
 project_key: mls
 tracking_system: file-system
-story_location: _bmad-output/implementation-artifacts
+story_location: {project-root}/_bmad-output/implementation-artifacts
 
 development_status:
   # All epics, stories, and retrospectives in order
@@ -48,9 +48,9 @@ development_status:
   1-4-human-readable-progress-and-run-summary: done
   1-5-exit-code-semantics-for-scripting: done
   epic-1-retrospective: done
-  epic-2: backlog
-  2-1-build-a-deterministic-write-plan-from-inputs: backlog
-  2-2-dry-run-mode-shows-intended-changes-without-writing: backlog
+  epic-2: in-progress
+  2-1-build-a-deterministic-write-plan-from-inputs: done
+  2-2-dry-run-mode-shows-intended-changes-without-writing: done
   2-3-idempotency-rules-prevent-cue-thrashing-on-reruns: backlog
   2-4-regeneration-updates-only-tool-created-cues-when-needed: backlog
   epic-2-retrospective: optional
@@ -79,6 +79,3 @@ development_status:
   6-3-provider-adapter-interface-and-opt-in-network-behavior: backlog
   6-4-provider-caching-capability-for-repeated-runs: backlog
   epic-6-retrospective: optional
-
-
-
