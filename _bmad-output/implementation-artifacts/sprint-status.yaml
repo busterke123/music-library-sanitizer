@@ -43,7 +43,7 @@ development_status:
   # All epics, stories, and retrospectives in order
   epic-1: in-progress
   1-1-set-up-initial-project-from-starter-template-uv-typer: done
-  1-2-load-config-file-and-apply-cli-overrides: ready-for-dev
+  1-2-load-config-file-and-apply-cli-overrides: done
   1-3-resolve-playlist-by-stable-id-and-preflight-display: backlog
   1-4-human-readable-progress-and-run-summary: backlog
   1-5-exit-code-semantics-for-scripting: backlog

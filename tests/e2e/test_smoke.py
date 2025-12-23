@@ -25,6 +25,7 @@ def test_cli_help_runs() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "run" in result.stdout
+    assert "--config" in result.stdout
 
 
 @pytest.mark.e2e
@@ -44,3 +45,4 @@ def test_console_entrypoint_help_runs() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "run" in result.stdout
+    assert "--config" in result.stdout
