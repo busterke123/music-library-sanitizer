@@ -1,0 +1,27 @@
+[project]
+name = "music-library-sanitzer"
+version = "0.1.0"
+description = "Scriptable CLI for enriching a Rekordbox library."
+authors = [
+    { name = "ArneDr", email = "33124950+ArneDr@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "rich>=14.2.0",
+    "typer>=0.20.1",
+]
+
+[project.scripts]
+music-library-sanitzer = "music_library_sanitzer.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "python-dotenv>=1.2.1",
+    "ruff>=0.14.10",
+]

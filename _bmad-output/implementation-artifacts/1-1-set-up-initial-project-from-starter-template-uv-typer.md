@@ -1,6 +1,6 @@
 # Story 1.1: Set up initial project from starter template (uv + Typer)
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -19,23 +19,23 @@ so that development starts from a clean, maintainable baseline.
 
 ## Tasks / Subtasks
 
-- [ ] Scaffold project with `uv` (AC: #1)
-  - [ ] Run `uv init music-library-sanitzer` (or align existing repo with equivalent `pyproject.toml` + `uv.lock`)
-  - [ ] Ensure `.python-version` (or equivalent) is present/consistent with chosen runtime
-  - [ ] Ensure packaging supports `src/` layout and installs `music_library_sanitzer` module
-- [ ] Add baseline dependencies via `uv` (AC: #1)
-  - [ ] `uv add typer rich`
-  - [ ] `uv add --dev pytest ruff mypy`
-  - [ ] Decide whether `requirements.txt` remains (if kept, document it as export-only; otherwise remove to avoid drift)
-- [ ] Create the architecture-aligned directory structure (AC: #1)
-  - [ ] Create `src/music_library_sanitzer/` package with `__init__.py` and `__main__.py`
-  - [ ] Add `src/music_library_sanitzer/cli.py` with Typer app and placeholder `run` command
-  - [ ] Wire console entrypoint so `music-library-sanitzer --help` works (via `pyproject.toml` scripts)
-  - [ ] Ensure `python -m music_library_sanitzer --help` also works
-- [ ] Establish minimal test + lint baseline (AC: #1)
-  - [ ] Keep/adjust existing `pytest.ini` and `tests/` layout to match the new package name
-  - [ ] Add at least one smoke test that invokes CLI help and asserts `run` appears
-  - [ ] Ensure `ruff` and `pytest` run locally (CI wiring can be handled in later stories)
+- [x] Scaffold project with `uv` (AC: #1)
+  - [x] Run `uv init music-library-sanitzer` (or align existing repo with equivalent `pyproject.toml` + `uv.lock`)
+  - [x] Ensure `.python-version` (or equivalent) is present/consistent with chosen runtime
+  - [x] Ensure packaging supports `src/` layout and installs `music_library_sanitzer` module
+- [x] Add baseline dependencies via `uv` (AC: #1)
+  - [x] `uv add typer rich`
+  - [x] `uv add --dev pytest ruff mypy`
+  - [x] Decide whether `requirements.txt` remains (if kept, document it as export-only; otherwise remove to avoid drift)
+- [x] Create the architecture-aligned directory structure (AC: #1)
+  - [x] Create `src/music_library_sanitzer/` package with `__init__.py` and `__main__.py`
+  - [x] Add `src/music_library_sanitzer/cli.py` with Typer app and placeholder `run` command
+  - [x] Wire console entrypoint so `music-library-sanitzer --help` works (via `pyproject.toml` scripts)
+  - [x] Ensure `python -m music_library_sanitzer --help` also works
+- [x] Establish minimal test + lint baseline (AC: #1)
+  - [x] Keep/adjust existing `pytest.ini` and `tests/` layout to match the new package name
+  - [x] Add at least one smoke test that invokes CLI help and asserts `run` appears
+  - [x] Ensure `ruff` and `pytest` run locally (CI wiring can be handled in later stories)
 
 ## Dev Notes
 
@@ -60,11 +60,30 @@ so that development starts from a clean, maintainable baseline.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+GPT-5.2 (Codex CLI)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Initialized uv-based Python package with `src/` layout + `uv.lock`
+- Added Typer/Rich runtime deps and pytest/ruff/mypy dev deps (plus `python-dotenv` for existing test harness)
+- Implemented Typer CLI scaffold with `run` placeholder; verified `music-library-sanitzer --help` and `python -m music_library_sanitzer --help`
+- Updated e2e smoke test to assert `run` appears; ran `pytest` + `ruff check .`
+- Code review fixes: aligned Python version to 3.12, added console entrypoint test, refreshed uv lock, updated test docs, and removed tracked `.DS_Store`
+
 ### File List
 
+- .gitignore
+- .python-version
+- _bmad-output/implementation-artifacts/1-1-set-up-initial-project-from-starter-template-uv-typer.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml
+- pyproject.toml
+- src/music_library_sanitzer/__init__.py
+- src/music_library_sanitzer/__main__.py
+- src/music_library_sanitzer/cli.py
+- tests/README.md
+- tests/e2e/test_smoke.py
+- uv.lock
+- (deleted) requirements.txt
+- (deleted) .DS_Store

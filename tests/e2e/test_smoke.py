@@ -1,4 +1,5 @@
 import importlib.util
+import shutil
 import subprocess
 import sys
 
@@ -23,3 +24,23 @@ def test_cli_help_runs() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+    assert "run" in result.stdout
+
+
+@pytest.mark.e2e
+def test_console_entrypoint_help_runs() -> None:
+    if importlib.util.find_spec("music_library_sanitzer") is None:
+        pytest.skip("Package not implemented yet (expected early in the project).")
+
+    entrypoint = shutil.which("music-library-sanitzer")
+    if entrypoint is None:
+        pytest.skip("Console entrypoint not available in PATH for this environment.")
+
+    result = subprocess.run(
+        [entrypoint, "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "run" in result.stdout

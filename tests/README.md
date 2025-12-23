@@ -2,18 +2,15 @@
 
 ## Setup (local)
 
-1. Create a virtualenv (recommended):
-   - `python -m venv .venv`
-   - `source .venv/bin/activate`
-2. Install dependencies:
-   - `pip install -r requirements.txt`
-3. Configure env:
+1. Install dependencies (creates `.venv` automatically):
+   - `uv sync`
+2. Configure env:
    - `cp .env.example .env`
    - Edit `BASE_URL` if your CLI needs it (optional)
 
 ## Run E2E tests
 
-- `pytest -m e2e`
+- `uv run pytest -m e2e`
 
 ## Notes
 
