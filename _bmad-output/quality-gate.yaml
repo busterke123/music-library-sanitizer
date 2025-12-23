@@ -1,0 +1,40 @@
+gate_decision:
+  project: music-library-sanitzer
+  gate_type: release
+  decision_mode: deterministic
+  decision: FAIL
+  date: "2025-12-22"
+  criteria:
+    p0_coverage: 0
+    p1_coverage: 0
+    overall_coverage: 0
+    test_results_available: false
+  thresholds:
+    min_p0_coverage: 100
+    min_overall_coverage: 80
+  evidence:
+    traceability: _bmad-output/traceability-matrix.md
+    test_results: NOT_PROVIDED
+    test_design: _bmad-output/test-design-system.md
+    prd: _bmad-output/prd.md
+    architecture: _bmad-output/architecture.md
+  blockers:
+    - id: P0-BLOCKER-001
+      title: Backup-before-write and abort-on-backup-failure untested
+      requirements: ["FR14", "FR15", "NFR2", "NFR3"]
+    - id: P0-BLOCKER-002
+      title: Fail-closed and atomic write behavior untested
+      requirements: ["NFR2", "NFR3", "FR10", "FR23"]
+    - id: P0-BLOCKER-003
+      title: Never-overwrite-user-cues policy + provenance overwrite untested
+      requirements: ["FR11", "FR12", "FR13"]
+    - id: P0-BLOCKER-004
+      title: Dry-run no-write guarantee untested
+      requirements: ["FR4", "FR24"]
+    - id: P0-BLOCKER-005
+      title: Determinism/idempotency untested
+      requirements: ["FR30", "FR31"]
+  next_steps:
+    - Create minimal CLI package under src/ so E2E tests can execute
+    - Add Rekordbox fixture strategy (golden fixtures + per-test temp copies)
+    - Implement strict precondition order (validate → plan → backup → write → report) and cover with P0 integration tests
