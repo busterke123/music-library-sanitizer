@@ -105,16 +105,16 @@ def test_execute_run_dry_run_builds_plan_and_skips_processing() -> None:
     ) -> None:
         calls["side_effects"] = True
 
-    original_build = cli.build_write_plan_with_provenance
+    original_build = cli.build_write_plan_for_preconditions
     original_render = cli._render_dry_run
     original_side_effects = cli._run_write_side_effects
-    cli.build_write_plan_with_provenance = fake_build_write_plan
+    cli.build_write_plan_for_preconditions = fake_build_write_plan
     cli._render_dry_run = fake_render_dry_run
     cli._run_write_side_effects = fake_run_write_side_effects
     try:
         statuses, reasons = cli._execute_dry_run(config, playlist)
     finally:
-        cli.build_write_plan_with_provenance = original_build
+        cli.build_write_plan_for_preconditions = original_build
         cli._render_dry_run = original_render
         cli._run_write_side_effects = original_side_effects
 

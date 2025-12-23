@@ -96,22 +96,19 @@ gpt-5 (Codex CLI)
 - Added PreconditionFailure error surfaced to CLI with ExitCode.FAILURE.
 - Kept dry-run flow intact while routing write-mode through preconditions.
 - Added unit coverage for precondition failure exit code mapping and write-side effect gating.
-- Review fixes: added explicit config validation stage in preconditions; fixed test import ordering; updated File List to include validation report.
+- Review fixes: stop persisting provenance during preconditions; add post-write provenance hook for future writes.
+- Review fixes: update dry-run/precondition tests to use precondition plan builder.
+- Review fixes: adjust idempotency tests to assert no provenance persistence before writes.
+- Note: unrelated working tree changes belong to Story 3.2 and are excluded from this story's File List.
 - Tests run: `python -m pytest`
-- Tests run for review fixes: not run (not requested).
 
 ### File List
 
 - _bmad-output/implementation-artifacts/3-1-enforce-fail-closed-preconditions-before-any-write.md
-- _bmad-output/implementation-artifacts/validation-report-20251223-160715.md
-- _bmad-output/implementation-artifacts/sprint-status.yaml
 - src/music_library_sanitzer/cli.py
-- src/music_library_sanitzer/errors.py
 - src/music_library_sanitzer/pipeline/executor.py
 - tests/unit/test_dry_run.py
 - tests/unit/test_idempotency.py
-- tests/unit/test_preconditions.py
-- tests/unit/test_write_plan.py
 
 ## Story Completion Status
 

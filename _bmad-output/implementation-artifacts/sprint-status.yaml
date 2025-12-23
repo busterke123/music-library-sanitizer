@@ -56,7 +56,7 @@ development_status:
   epic-2-retrospective: optional
   epic-3: in-progress
   3-1-enforce-fail-closed-preconditions-before-any-write: done
-  3-2-create-a-pre-write-backup-for-write-runs: backlog
+  3-2-create-a-pre-write-backup-for-write-runs: done
   3-3-backup-retention-keeps-the-50-most-recent-backups: backlog
   3-4-list-available-backups: backlog
   3-5-restore-from-backup-and-report-verification: backlog

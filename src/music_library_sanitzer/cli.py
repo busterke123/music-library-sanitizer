@@ -10,9 +10,10 @@ from .exit_codes import ExitCode, exit_code_for_counts
 from .pipeline.models import CuePlan, TrackPlan, WritePlan
 from .pipeline.executor import (
     PreconditionResult,
-    build_write_plan_with_provenance,
+    build_write_plan_for_preconditions,
     run_write_preconditions,
 )
+from .rekordbox.backup import create_backup
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
@@ -131,18 +132,34 @@ def _statuses_from_plan(plan: WritePlan) -> tuple[list[RunStatus], list[str]]:
     return statuses, failure_reasons
 
 
-def _run_write_side_effects(
+def _has_write_changes(plan: WritePlan) -> bool:
+    return any(_is_planned_change(track.planned_action.action) for track in plan.tracks)
+
+
+def _apply_write_side_effects(
     _config: Config,
     _preconditions: PreconditionResult,
 ) -> None:
     return
 
 
+def _run_write_side_effects(
+    config: Config,
+    preconditions: PreconditionResult,
+) -> None:
+    if config.dry_run:
+        return
+    if not _has_write_changes(preconditions.plan):
+        return
+    create_backup(config.library_path, config.backup_path)
+    _apply_write_side_effects(config, preconditions)
+
+
 def _execute_dry_run(
     config: Config,
     resolved: ResolvedPlaylist,
 ) -> tuple[list[RunStatus], list[str]]:
-    plan = build_write_plan_with_provenance(config, resolved)
+    plan = build_write_plan_for_preconditions(config, resolved)
     _render_dry_run(plan)
     return _statuses_from_plan(plan)
 

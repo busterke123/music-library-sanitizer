@@ -230,11 +230,13 @@ def test_provenance_index_roundtrip(tmp_path: Path) -> None:
     assert loaded == index
 
 
-def test_build_write_plan_persists_generation_id(tmp_path: Path, monkeypatch) -> None:
+def test_build_write_plan_does_not_persist_provenance_before_write(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.setenv("MLS_STATE_DIR", str(tmp_path))
     try:
         from music_library_sanitzer.pipeline.executor import (
-            build_write_plan_with_provenance,
+            build_write_plan_for_preconditions,
         )
         from music_library_sanitzer.config.model import Config
         from music_library_sanitzer.rekordbox.playlist import ResolvedPlaylist
@@ -253,8 +255,11 @@ def test_build_write_plan_persists_generation_id(tmp_path: Path, monkeypatch) ->
             track_ids=("TRK-1",),
         )
 
-        build_write_plan_with_provenance(config, playlist)
+        build_write_plan_for_preconditions(config, playlist)
+        provenance_path = tmp_path / "provenance" / "cue_provenance.json"
+        assert provenance_path.exists() is False
         loaded = load_provenance_index(base_dir=tmp_path)
-        assert loaded.generation_id is not None
+        assert loaded.generation_id is None
+        assert loaded.tracks == {}
     finally:
         monkeypatch.setenv("MLS_STATE_DIR", "")

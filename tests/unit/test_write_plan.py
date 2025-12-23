@@ -100,10 +100,13 @@ def test_planner_runs_before_processing() -> None:
 
     original_run = cli.run_write_preconditions
     original_compute = cli._compute_track_statuses
+    original_backup = cli.create_backup
     cli.run_write_preconditions = fake_run_write_preconditions
     cli._compute_track_statuses = fake_compute_track_statuses
+    cli.create_backup = lambda *_: Path("/tmp/backups/placeholder.xml")
     try:
         cli._execute_write_run(config, playlist.playlist_id)
     finally:
         cli.run_write_preconditions = original_run
         cli._compute_track_statuses = original_compute
+        cli.create_backup = original_backup

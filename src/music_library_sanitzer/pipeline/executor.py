@@ -22,12 +22,19 @@ class PreconditionResult:
     plan: WritePlan
 
 
-def build_write_plan_with_provenance(
+def build_write_plan_for_preconditions(
     config: Config,
     resolved: ResolvedPlaylist,
 ) -> WritePlan:
     plan = build_write_plan(config, resolved)
     persist_write_plan(plan)
+    return plan
+
+
+def persist_provenance_after_write(
+    config: Config,
+    plan: WritePlan,
+) -> None:
     generation_id = current_generation_id(config)
     updates = extract_provenance_from_plan(
         plan,
@@ -37,7 +44,6 @@ def build_write_plan_with_provenance(
     merged = merge_provenance_indexes(existing, updates)
     if merged.generation_id != existing.generation_id or updates.tracks:
         persist_provenance_index(merged)
-    return plan
 
 
 def _validate_write_config(config: Config) -> None:
@@ -80,7 +86,7 @@ def run_write_preconditions(
         ) from exc
 
     try:
-        plan = build_write_plan_with_provenance(config, resolved)
+        plan = build_write_plan_for_preconditions(config, resolved)
     except Exception as exc:
         raise PreconditionFailure(
             f"Write plan error: {exc}",
