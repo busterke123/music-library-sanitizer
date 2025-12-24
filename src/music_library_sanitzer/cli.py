@@ -71,7 +71,7 @@ def _format_cue_plan(cue: CuePlan) -> str:
 
 
 def _is_planned_change(action: str) -> bool:
-    return action not in {"noop", "skip"}
+    return action not in {"noop", "skip", "failed"}
 
 
 def _format_track_plan(track: TrackPlan) -> list[str]:
@@ -137,6 +137,14 @@ def _statuses_from_plan(plan: WritePlan) -> tuple[list[RunStatus], list[str]]:
                 )
             else:
                 failure_reasons.append(f"Track #{track.track_index}: skipped")
+        elif action == "failed":
+            statuses.append("failed")
+            if track.planned_action.reason:
+                failure_reasons.append(
+                    f"Track #{track.track_index}: {track.planned_action.reason}"
+                )
+            else:
+                failure_reasons.append(f"Track #{track.track_index}: failed")
         elif action == "noop":
             statuses.append("unchanged")
         else:
@@ -174,7 +182,13 @@ def _execute_dry_run(
     config: Config,
     resolved: ResolvedPlaylist,
 ) -> tuple[list[RunStatus], list[str]]:
-    plan = build_write_plan_for_preconditions(config, resolved)
+    try:
+        plan = build_write_plan_for_preconditions(config, resolved)
+    except Exception as exc:
+        raise PreconditionFailure(
+            f"Write plan error: {exc}",
+            stage="build_plan",
+        ) from exc
     _render_dry_run(plan)
     return _statuses_from_plan(plan)
 
@@ -185,7 +199,7 @@ def _execute_write_run(
 ) -> tuple[ResolvedPlaylist, list[RunStatus], list[str]]:
     preconditions = run_write_preconditions(config, playlist_id)
     _run_write_side_effects(config, preconditions)
-    statuses, failure_reasons = _compute_track_statuses(preconditions.resolved)
+    statuses, failure_reasons = _statuses_from_plan(preconditions.plan)
     return preconditions.resolved, statuses, failure_reasons
 
 
@@ -308,10 +322,13 @@ def run(
     if config.dry_run:
         try:
             resolved = resolve_playlist(config.library_path, playlist_id)
+            statuses, failure_reasons = _execute_dry_run(config, resolved)
         except PlaylistResolutionError as exc:
             typer.echo(f"Playlist resolution error: {exc}", err=True)
             raise typer.Exit(code=ExitCode.FAILURE) from exc
-        statuses, failure_reasons = _execute_dry_run(config, resolved)
+        except PreconditionFailure as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.FAILURE) from exc
     else:
         try:
             resolved, statuses, failure_reasons = _execute_write_run(

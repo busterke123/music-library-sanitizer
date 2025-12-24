@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <REKORDBOX>
+  <COLLECTION>
+    <TRACK TrackID="1"></TRACK>
+    <TRACK TrackID="2"></TRACK>
+    <TRACK TrackID="3"></TRACK>
+  </COLLECTION>
   <PLAYLISTS>
     <NODE Type="1" Id="PL-ALPHA" Name="Alpha Set">
       <TRACK Key="1" />

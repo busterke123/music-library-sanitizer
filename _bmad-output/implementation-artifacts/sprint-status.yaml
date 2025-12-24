@@ -62,7 +62,7 @@ development_status:
   3-5-restore-from-backup-and-report-verification: done
   epic-3-retrospective: optional
   epic-4: backlog
-  4-1-read-current-hot-cues-for-targeted-tracks: backlog
+  4-1-read-current-hot-cues-for-targeted-tracks: done
   4-2-generate-hot-cue-candidates-per-eligible-track: backlog
   4-3-slot-selection-policy-chooses-which-cues-to-fill-update: backlog
   4-4-provenance-tagging-and-detection-for-tool-created-cues: backlog

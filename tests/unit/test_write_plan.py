@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 
 import music_library_sanitzer.cli as cli
 from music_library_sanitzer.config.model import Config
@@ -7,9 +8,23 @@ from music_library_sanitzer.rekordbox.playlist import ResolvedPlaylist
 from music_library_sanitzer.state.runs import persist_write_plan
 
 
-def test_write_plan_deterministic_serialization() -> None:
+def _write_xml(path: Path, content: str) -> Path:
+    path.write_text(dedent(content).strip() + "\n", encoding="utf-8")
+    return path
+
+
+def test_write_plan_deterministic_serialization(tmp_path: Path) -> None:
+    xml_path = _write_xml(
+        tmp_path / "rekordbox.xml",
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <REKORDBOX>
+          <COLLECTION></COLLECTION>
+        </REKORDBOX>
+        """,
+    )
     config = Config(
-        library_path=Path("/tmp/library.xml"),
+        library_path=xml_path,
         backup_path=Path("/tmp/backups"),
         stage_hot_cues=True,
         stage_energy=False,
@@ -28,9 +43,20 @@ def test_write_plan_deterministic_serialization() -> None:
     assert first == second
 
 
-def test_plan_includes_planned_actions_and_cues() -> None:
+def test_plan_includes_planned_actions_and_cues(tmp_path: Path) -> None:
+    xml_path = _write_xml(
+        tmp_path / "rekordbox.xml",
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <REKORDBOX>
+          <COLLECTION>
+            <TRACK TrackID="TRK-1"></TRACK>
+          </COLLECTION>
+        </REKORDBOX>
+        """,
+    )
     config = Config(
-        library_path=Path("/tmp/library.xml"),
+        library_path=xml_path,
         backup_path=Path("/tmp/backups"),
         stage_hot_cues=True,
         stage_energy=False,
@@ -46,12 +72,25 @@ def test_plan_includes_planned_actions_and_cues() -> None:
     plan = build_write_plan(config, playlist)
     assert plan.tracks[0].planned_action.action == "noop"
     assert plan.tracks[0].cues == ()
-    assert plan.tracks[1].planned_action.action == "skip"
+    assert plan.tracks[1].planned_action.action == "failed"
+    assert plan.tracks[1].planned_action.reason == "missing_track_id"
 
 
 def test_persist_write_plan_writes_json(tmp_path: Path) -> None:
+    xml_path = _write_xml(
+        tmp_path / "rekordbox.xml",
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <REKORDBOX>
+          <COLLECTION>
+            <TRACK TrackID="TRK-1"></TRACK>
+            <TRACK TrackID="TRK-2"></TRACK>
+          </COLLECTION>
+        </REKORDBOX>
+        """,
+    )
     config = Config(
-        library_path=Path("/tmp/library.xml"),
+        library_path=xml_path,
         backup_path=Path("/tmp/backups"),
         stage_hot_cues=True,
         stage_energy=False,
@@ -70,9 +109,20 @@ def test_persist_write_plan_writes_json(tmp_path: Path) -> None:
     assert plan_path.read_text(encoding="utf-8") == plan.to_json()
 
 
-def test_planner_runs_before_processing() -> None:
+def test_planner_runs_before_processing(tmp_path: Path) -> None:
+    xml_path = _write_xml(
+        tmp_path / "rekordbox.xml",
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <REKORDBOX>
+          <COLLECTION>
+            <TRACK TrackID="TRK-1"></TRACK>
+          </COLLECTION>
+        </REKORDBOX>
+        """,
+    )
     config = Config(
-        library_path=Path("/tmp/library.xml"),
+        library_path=xml_path,
         backup_path=Path("/tmp/backups"),
         stage_hot_cues=True,
         stage_energy=False,
@@ -92,21 +142,18 @@ def test_planner_runs_before_processing() -> None:
         plan = build_write_plan(config, playlist)
         return cli.PreconditionResult(resolved=playlist, plan=plan)
 
-    def fake_compute_track_statuses(
-        _: ResolvedPlaylist,
-    ) -> tuple[list[str], list[str]]:
-        assert planned["value"] is True
-        return (["unchanged"], [])
-
     original_run = cli.run_write_preconditions
-    original_compute = cli._compute_track_statuses
     original_backup = cli.create_backup
+    original_side_effects = cli._run_write_side_effects
     cli.run_write_preconditions = fake_run_write_preconditions
-    cli._compute_track_statuses = fake_compute_track_statuses
     cli.create_backup = lambda *_: Path("/tmp/backups/placeholder.xml")
+    cli._run_write_side_effects = lambda *_: None
     try:
-        cli._execute_write_run(config, playlist.playlist_id)
+        _, statuses, _ = cli._execute_write_run(config, playlist.playlist_id)
     finally:
         cli.run_write_preconditions = original_run
-        cli._compute_track_statuses = original_compute
         cli.create_backup = original_backup
+        cli._run_write_side_effects = original_side_effects
+
+    assert planned["value"] is True
+    assert statuses == ["unchanged"]

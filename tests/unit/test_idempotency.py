@@ -1,6 +1,12 @@
 from pathlib import Path
+from textwrap import dedent
 
-from music_library_sanitzer.pipeline.models import CuePlan, PlannedAction, TrackPlan
+from music_library_sanitzer.pipeline.models import (
+    CuePlan,
+    ExistingCue,
+    PlannedAction,
+    TrackPlan,
+)
 from music_library_sanitzer.pipeline.planner import apply_idempotency
 from music_library_sanitzer.state.provenance import (
     CueProvenanceIndex,
@@ -8,6 +14,11 @@ from music_library_sanitzer.state.provenance import (
     load_provenance_index,
     persist_provenance_index,
 )
+
+
+def _write_xml(path: Path, content: str) -> Path:
+    path.write_text(dedent(content).strip() + "\n", encoding="utf-8")
+    return path
 
 
 def test_apply_idempotency_marks_noop_for_matching_provenance() -> None:
@@ -208,6 +219,39 @@ def test_apply_idempotency_requires_verified_provenance() -> None:
     assert updated[0].cues == ()
 
 
+def test_apply_idempotency_skips_when_existing_cues_match() -> None:
+    track = TrackPlan(
+        track_index=1,
+        track_id="TRK-1",
+        planned_action=PlannedAction(action="update", reason="add_cue"),
+        cues=(
+            CuePlan(
+                slot=1,
+                start_ms=1000,
+                label="Intro",
+                color="red",
+                source="planner",
+            ),
+        ),
+        existing_cues=(
+            ExistingCue(
+                slot=1,
+                start_ms=1000,
+                label="Intro",
+                color="red",
+                source=None,
+            ),
+        ),
+    )
+    provenance = CueProvenanceIndex(tracks={})
+
+    updated = apply_idempotency([track], provenance, regeneration_trigger=False)
+
+    assert updated[0].planned_action.action == "noop"
+    assert updated[0].planned_action.reason == "existing_cues_match"
+    assert updated[0].cues == ()
+
+
 def test_provenance_index_roundtrip(tmp_path: Path) -> None:
     index = CueProvenanceIndex(
         tracks={
@@ -241,8 +285,19 @@ def test_build_write_plan_does_not_persist_provenance_before_write(
         from music_library_sanitzer.config.model import Config
         from music_library_sanitzer.rekordbox.playlist import ResolvedPlaylist
 
+        xml_path = _write_xml(
+            tmp_path / "rekordbox.xml",
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <REKORDBOX>
+              <COLLECTION>
+                <TRACK TrackID="TRK-1"></TRACK>
+              </COLLECTION>
+            </REKORDBOX>
+            """,
+        )
         config = Config(
-            library_path=Path("/tmp/library.xml"),
+            library_path=xml_path,
             backup_path=Path("/tmp/backups"),
             stage_hot_cues=True,
             stage_energy=False,

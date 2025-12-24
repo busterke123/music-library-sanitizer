@@ -41,11 +41,21 @@ class CuePlan:
 
 
 @dataclass(frozen=True)
+class ExistingCue:
+    slot: int
+    start_ms: int | None
+    label: str | None
+    color: str | None
+    source: str | None
+
+
+@dataclass(frozen=True)
 class TrackPlan:
     track_index: int
     track_id: str | None
     planned_action: PlannedAction
     cues: tuple[CuePlan, ...]
+    existing_cues: tuple[ExistingCue, ...] = ()
 
 
 @dataclass(frozen=True)

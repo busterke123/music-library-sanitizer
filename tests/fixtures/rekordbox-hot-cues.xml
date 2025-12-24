@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<REKORDBOX>
+  <COLLECTION>
+    <TRACK TrackID="TRK-1">
+      <HOTCUE Num="1" Start="1000" Name="Intro" Color="red" />
+      <HOTCUE Num="2" Start="2000" Name="Drop" Color="blue" />
+    </TRACK>
+    <TRACK TrackID="TRK-2">
+      <HOTCUE Num="1" Start="1500" Name="Main" Color="green" />
+    </TRACK>
+  </COLLECTION>
+</REKORDBOX>

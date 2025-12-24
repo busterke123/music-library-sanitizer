@@ -4,8 +4,16 @@ import hashlib
 import json
 from dataclasses import replace
 
-from .models import ConfigSnapshot, CuePlan, PlannedAction, TrackPlan, WritePlan
+from .models import (
+    ConfigSnapshot,
+    CuePlan,
+    ExistingCue,
+    PlannedAction,
+    TrackPlan,
+    WritePlan,
+)
 from ..config.model import Config
+from ..rekordbox.cues import read_existing_hot_cues
 from ..rekordbox.playlist import ResolvedPlaylist
 from ..state.provenance import CueProvenanceIndex, ProvenanceCue, load_provenance_index
 
@@ -49,6 +57,18 @@ def _provenance_signature(
     cue: ProvenanceCue,
 ) -> tuple[int, int | None, str | None, str | None, str | None]:
     return (cue.slot, cue.start_ms, cue.label, cue.color, cue.source)
+
+
+def _planned_existing_signature(
+    cue: CuePlan,
+) -> tuple[int, int | None, str | None, str | None]:
+    return (cue.slot, cue.start_ms, cue.label, cue.color)
+
+
+def _existing_signature(
+    cue: ExistingCue,
+) -> tuple[int, int | None, str | None, str | None]:
+    return (cue.slot, cue.start_ms, cue.label, cue.color)
 
 
 def provenance_fingerprint(index: CueProvenanceIndex) -> str:
@@ -121,6 +141,21 @@ def apply_idempotency(
         if not track.cues:
             updated.append(track)
             continue
+        if track.existing_cues:
+            planned = {_planned_existing_signature(cue) for cue in track.cues}
+            existing = {_existing_signature(cue) for cue in track.existing_cues}
+            if planned and planned.issubset(existing):
+                updated.append(
+                    replace(
+                        track,
+                        planned_action=PlannedAction(
+                            action="noop",
+                            reason="existing_cues_match",
+                        ),
+                        cues=(),
+                    )
+                )
+                continue
         existing = provenance.tracks.get(track.track_id)
         if not existing:
             updated.append(track)
@@ -204,16 +239,27 @@ def build_write_plan(config: Config, playlist: ResolvedPlaylist) -> WritePlan:
     provenance = load_provenance_index()
     provenance_hash = provenance_fingerprint(provenance)
     inputs_hash = _inputs_hash(config_snapshot, playlist, provenance_hash)
+    existing_cues, cue_failures = read_existing_hot_cues(
+        config.library_path, playlist.track_ids
+    )
     track_plans: list[TrackPlan] = []
 
     for index, track_id in enumerate(playlist.track_ids, start=1):
         if track_id is None:
             planned_action = PlannedAction(
-                action="skip",
+                action="failed",
                 reason="missing_track_id",
             )
+            track_existing_cues = ()
+        elif track_id in cue_failures:
+            planned_action = PlannedAction(
+                action="failed",
+                reason=cue_failures[track_id],
+            )
+            track_existing_cues = ()
         else:
             planned_action = PlannedAction(action="noop", reason=None)
+            track_existing_cues = existing_cues.get(track_id, ())
 
         track_plans.append(
             TrackPlan(
@@ -221,6 +267,7 @@ def build_write_plan(config: Config, playlist: ResolvedPlaylist) -> WritePlan:
                 track_id=track_id,
                 planned_action=planned_action,
                 cues=(),
+                existing_cues=track_existing_cues,
             )
         )
 

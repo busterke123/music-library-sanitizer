@@ -180,8 +180,8 @@ def test_run_partial_success_exit_code() -> None:
     assert "Playlist ID: PL-MISSING-IDS" in output
     assert "Track Count: 2" in output
     assert "Run Summary" in output
-    assert "Skipped: 2" in output
-    assert "Failed: 0" in output
+    assert "Skipped: 0" in output
+    assert "Failed: 2" in output
 
 
 @pytest.mark.e2e

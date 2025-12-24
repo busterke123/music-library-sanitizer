@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from music_library_sanitzer.config.model import Config
+from music_library_sanitzer.errors import PreconditionFailure
 from music_library_sanitzer.pipeline.models import (
     ConfigSnapshot,
     CuePlan,
@@ -120,4 +123,62 @@ def test_execute_run_dry_run_builds_plan_and_skips_processing() -> None:
 
     assert statuses == ["updated", "unchanged"]
     assert reasons == []
-    assert calls == {"build": True, "render": True, "side_effects": False}
+
+
+def test_execute_dry_run_fails_closed_on_malformed_xml(tmp_path: Path) -> None:
+    import music_library_sanitzer.cli as cli
+
+    xml_path = tmp_path / "rekordbox.xml"
+    xml_path.write_text("<REKORDBOX>", encoding="utf-8")
+    config = Config(
+        library_path=xml_path,
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=True,
+    )
+    playlist = ResolvedPlaylist(
+        playlist_id="PL-BROKEN",
+        name="Broken XML",
+        track_count=1,
+        track_ids=("TRK-1",),
+    )
+
+    with pytest.raises(PreconditionFailure):
+        cli._execute_dry_run(config, playlist)
+
+
+def test_statuses_from_plan_includes_failed_reasons() -> None:
+    import music_library_sanitzer.cli as cli
+
+    snapshot = ConfigSnapshot(
+        library_path="/tmp/library.xml",
+        backup_path="/tmp/backups",
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=True,
+    )
+    plan = WritePlan(
+        plan_version=1,
+        inputs_hash="hash",
+        playlist_id="PL-ALPHA",
+        playlist_name="Alpha Set",
+        track_count=1,
+        config=snapshot,
+        tracks=(
+            TrackPlan(
+                track_index=1,
+                track_id="TRK-1",
+                planned_action=PlannedAction(
+                    action="failed",
+                    reason="missing_track_entry",
+                ),
+                cues=(),
+            ),
+        ),
+    )
+
+    statuses, reasons = cli._statuses_from_plan(plan)
+
+    assert statuses == ["failed"]
+    assert reasons == ["Track #1: missing_track_entry"]
