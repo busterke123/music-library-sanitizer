@@ -83,6 +83,118 @@ def test_create_backup_appends_suffix_on_collision(tmp_path, monkeypatch) -> Non
     assert second.parent.name == "20250101-010203-1"
 
 
+def test_restore_backup_copies_and_reports_verification(tmp_path) -> None:
+    from music_library_sanitzer.rekordbox.backup import restore_backup
+
+    library_path = tmp_path / "rekordbox.xml"
+    library_path.write_text("old", encoding="utf-8")
+    backup_root = tmp_path / "backups"
+    backup_dir = backup_root / "20250101-010203"
+    backup_dir.mkdir(parents=True)
+    backup_file = backup_dir / "rekordbox.xml"
+    backup_file.write_text("backup", encoding="utf-8")
+
+    verification = restore_backup(library_path, backup_root, "20250101-010203")
+
+    assert library_path.read_text(encoding="utf-8") == "backup"
+    assert verification.backup_file == backup_file
+    assert verification.restored_file == library_path
+    assert verification.restored_exists is True
+    assert verification.size_match is True
+    assert verification.backup_size == verification.restored_size
+
+
+def test_restore_backup_missing_directory_raises_precondition_failure(
+    tmp_path: Path,
+) -> None:
+    from music_library_sanitzer.rekordbox.backup import restore_backup
+
+    library_path = tmp_path / "rekordbox.xml"
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        restore_backup(library_path, tmp_path / "backups", "missing")
+
+    assert excinfo.value.stage == "restore_backup"
+
+
+def test_restore_backup_missing_file_raises_precondition_failure(
+    tmp_path: Path,
+) -> None:
+    from music_library_sanitzer.rekordbox.backup import restore_backup
+
+    backup_root = tmp_path / "backups"
+    backup_dir = backup_root / "20250101-010203"
+    backup_dir.mkdir(parents=True)
+    library_path = tmp_path / "rekordbox.xml"
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        restore_backup(library_path, backup_root, "20250101-010203")
+
+    assert excinfo.value.stage == "restore_backup"
+
+
+def test_restore_backup_rejects_path_traversal(tmp_path: Path) -> None:
+    from music_library_sanitzer.rekordbox.backup import restore_backup
+
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+    library_path = tmp_path / "rekordbox.xml"
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        restore_backup(library_path, backup_root, "../evil")
+
+    assert excinfo.value.stage == "restore_backup"
+
+
+def test_restore_backup_copy_failure_raises_precondition_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_dir = backup_root / "20250101-010203"
+    backup_dir.mkdir(parents=True)
+    backup_file = backup_dir / "rekordbox.xml"
+    backup_file.write_text("backup", encoding="utf-8")
+    library_path = tmp_path / "rekordbox.xml"
+
+    def boom(_: Path, __: Path) -> None:
+        raise OSError("nope")
+
+    monkeypatch.setattr(backup, "copy2", boom)
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        backup.restore_backup(library_path, backup_root, "20250101-010203")
+
+    assert excinfo.value.stage == "restore_backup"
+
+
+def test_restore_backup_size_mismatch_raises_precondition_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from music_library_sanitzer.rekordbox import backup
+
+    backup_root = tmp_path / "backups"
+    backup_dir = backup_root / "20250101-010203"
+    backup_dir.mkdir(parents=True)
+    backup_file = backup_dir / "rekordbox.xml"
+    backup_file.write_text("backup-data", encoding="utf-8")
+    library_path = tmp_path / "rekordbox.xml"
+
+    def short_copy(src: Path, dest: Path) -> None:
+        data = Path(src).read_bytes()
+        Path(dest).write_bytes(data[:2])
+
+    monkeypatch.setattr(backup, "copy2", short_copy)
+
+    with pytest.raises(PreconditionFailure) as excinfo:
+        backup.restore_backup(library_path, backup_root, "20250101-010203")
+
+    assert excinfo.value.stage == "restore_backup"
+
+
 def test_list_backup_directories_orders_newest_first_with_suffix(tmp_path) -> None:
     from music_library_sanitzer.rekordbox import backup
 
@@ -530,5 +642,58 @@ def test_backups_command_failure_exits_failure(monkeypatch, capsys) -> None:
 
     with pytest.raises(typer.Exit) as excinfo:
         cli.backups(_dummy_context(config))
+
+    assert excinfo.value.exit_code == ExitCode.FAILURE
+
+
+def test_restore_command_outputs_verification(monkeypatch, capsys) -> None:
+    import music_library_sanitzer.cli as cli
+    from music_library_sanitzer.rekordbox.backup import RestoreVerification
+
+    config = Config(
+        library_path=Path("/tmp/library.xml"),
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=False,
+    )
+    verification = RestoreVerification(
+        identifier="20250101-010203",
+        backup_file=Path("/tmp/backups/20250101-010203/rekordbox.xml"),
+        restored_file=Path("/tmp/library.xml"),
+        backup_size=10,
+        restored_size=10,
+        restored_exists=True,
+        size_match=True,
+    )
+
+    monkeypatch.setattr(cli, "restore_backup", lambda *_: verification)
+
+    cli.restore(_dummy_context(config), "20250101-010203")
+
+    output = capsys.readouterr().out
+    assert "Restoring backup: 20250101-010203" in output
+    assert "Restore complete." in output
+    assert "Verification:" in output
+
+
+def test_restore_command_failure_exits_failure(monkeypatch) -> None:
+    import music_library_sanitzer.cli as cli
+
+    config = Config(
+        library_path=Path("/tmp/library.xml"),
+        backup_path=Path("/tmp/backups"),
+        stage_hot_cues=True,
+        stage_energy=False,
+        dry_run=False,
+    )
+
+    def boom(*_: object) -> None:
+        raise PreconditionFailure("Restore failed", stage="restore_backup")
+
+    monkeypatch.setattr(cli, "restore_backup", boom)
+
+    with pytest.raises(typer.Exit) as excinfo:
+        cli.restore(_dummy_context(config), "bad-id")
 
     assert excinfo.value.exit_code == ExitCode.FAILURE

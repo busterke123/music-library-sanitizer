@@ -1,6 +1,6 @@
 # Story 3.5: Restore from backup and report verification
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,23 +32,23 @@ so that I can recover confidently after a failed or risky run.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add restore helper in the Rekordbox IO layer (AC: 1, 2, 3, 4, 5)
-  - [ ] Subtask 1.1: Implement `restore_backup` in `src/music_library_sanitzer/rekordbox/backup.py`.
-  - [ ] Subtask 1.2: Resolve backup directory by identifier under `backup_root` and ensure it exists.
-  - [ ] Subtask 1.3: Validate the expected backup file is present (same filename as `library_path.name`).
-  - [ ] Subtask 1.4: Copy the backup file to `library_path` using `copy2`.
-  - [ ] Subtask 1.5: Collect verification data (exists + file size match; optional hash).
-  - [ ] Subtask 1.6: Raise `PreconditionFailure` with stage `restore_backup` on any errors.
-- [ ] Task 2: Add CLI command to restore backups (AC: 1, 2, 3, 4, 5)
-  - [ ] Subtask 2.1: Add `restore` (or `backup-restore`) command in `src/music_library_sanitzer/cli.py`.
-  - [ ] Subtask 2.2: Accept backup identifier argument and use `config.backup_path`.
-  - [ ] Subtask 2.3: Output clear progress and verification summary on success.
-  - [ ] Subtask 2.4: Convert `PreconditionFailure` into ExitCode.FAILURE with error text.
-  - [ ] Subtask 2.5: Ensure restore path does not call preconditions, backup creation, or retention.
-- [ ] Task 3: Add tests (AC: 1, 2, 3, 4, 5)
-  - [ ] Subtask 3.1: Unit tests for restore success (copies file, reports verification info).
-  - [ ] Subtask 3.2: Unit tests for missing backup directory or missing backup file (raises `PreconditionFailure` stage `restore_backup`).
-  - [ ] Subtask 3.3: CLI test for success output and failure exit code.
+- [x] Task 1: Add restore helper in the Rekordbox IO layer (AC: 1, 2, 3, 4, 5)
+  - [x] Subtask 1.1: Implement `restore_backup` in `src/music_library_sanitzer/rekordbox/backup.py`.
+  - [x] Subtask 1.2: Resolve backup directory by identifier under `backup_root` and ensure it exists.
+  - [x] Subtask 1.3: Validate the expected backup file is present (same filename as `library_path.name`).
+  - [x] Subtask 1.4: Copy the backup file to `library_path` using `copy2`.
+  - [x] Subtask 1.5: Collect verification data (exists + file size match; optional hash).
+  - [x] Subtask 1.6: Raise `PreconditionFailure` with stage `restore_backup` on any errors.
+- [x] Task 2: Add CLI command to restore backups (AC: 1, 2, 3, 4, 5)
+  - [x] Subtask 2.1: Add `restore` (or `backup-restore`) command in `src/music_library_sanitzer/cli.py`.
+  - [x] Subtask 2.2: Accept backup identifier argument and use `config.backup_path`.
+  - [x] Subtask 2.3: Output clear progress and verification summary on success.
+  - [x] Subtask 2.4: Convert `PreconditionFailure` into ExitCode.FAILURE with error text.
+  - [x] Subtask 2.5: Ensure restore path does not call preconditions, backup creation, or retention.
+- [x] Task 3: Add tests (AC: 1, 2, 3, 4, 5)
+  - [x] Subtask 3.1: Unit tests for restore success (copies file, reports verification info).
+  - [x] Subtask 3.2: Unit tests for missing backup directory or missing backup file (raises `PreconditionFailure` stage `restore_backup`).
+  - [x] Subtask 3.3: CLI test for success output and failure exit code.
 
 ## Dev Notes
 
@@ -126,12 +126,26 @@ gpt-5 (Codex CLI)
 ### Debug Log References
 
 create-story yolo mode
+pytest: python -m pytest tests\\unit\\test_backup.py
 
 ### Completion Notes List
 
 - Web research not required (standard library + local repo context).
 - Story context derived from epics, PRD, architecture, and Story 3.4 implementation notes.
+- Implemented restore helper with verification data and fail-closed errors.
+- Added restore CLI command with progress + verification output.
+- Tests: python -m pytest tests\\unit\\test_backup.py.
+- Code review fixes: atomic restore, identifier validation, verification failures treated as errors, tests updated.
 
 ### File List
 
 - _bmad-output/implementation-artifacts/3-5-restore-from-backup-and-report-verification.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml
+- src/music_library_sanitzer/rekordbox/backup.py
+- src/music_library_sanitzer/cli.py
+- tests/unit/test_backup.py
+
+## Change Log
+
+- 2025-12-24: Added restore helper, CLI command, and tests for backup restore.
+- 2025-12-24: Code review fixes for restore safety and validation.

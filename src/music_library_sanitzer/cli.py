@@ -14,7 +14,13 @@ from .pipeline.executor import (
     build_write_plan_for_preconditions,
     run_write_preconditions,
 )
-from .rekordbox.backup import BackupEntry, create_backup, list_backups, prune_backup_retention
+from .rekordbox.backup import (
+    BackupEntry,
+    create_backup,
+    list_backups,
+    prune_backup_retention,
+    restore_backup,
+)
 from .rekordbox.playlist import resolve_playlist
 from .rekordbox.playlist import ResolvedPlaylist
 from .run_summary import RunCounts, RunStatus, summarize_counts
@@ -253,6 +259,39 @@ def backups(ctx: typer.Context) -> None:
 
     for entry in entries:
         typer.echo(_format_backup_entry(entry))
+
+
+@app.command()
+def restore(
+    ctx: typer.Context,
+    backup_id: str = typer.Argument(
+        ...,
+        help="Backup identifier to restore.",
+    ),
+) -> None:
+    """Restore a Rekordbox library file from a backup."""
+    config = ctx.obj["config"]
+    typer.echo(f"Restoring backup: {backup_id}")
+    try:
+        verification = restore_backup(
+            config.library_path,
+            config.backup_path,
+            backup_id,
+        )
+    except PreconditionFailure as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=ExitCode.FAILURE) from exc
+
+    typer.echo("Restore complete.")
+    typer.echo(f"Backup file: {verification.backup_file}")
+    typer.echo(f"Restored file: {verification.restored_file}")
+    typer.echo(
+        "Verification: "
+        f"exists={verification.restored_exists} "
+        f"size_match={verification.size_match} "
+        f"backup_size={verification.backup_size} "
+        f"restored_size={verification.restored_size}"
+    )
 
 
 @app.command()

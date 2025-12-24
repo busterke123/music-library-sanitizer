@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +19,17 @@ class BackupEntry:
     identifier: str
     timestamp: datetime
     path: Path
+
+
+@dataclass(frozen=True)
+class RestoreVerification:
+    identifier: str
+    backup_file: Path
+    restored_file: Path
+    backup_size: int
+    restored_size: int
+    restored_exists: bool
+    size_match: bool
 
 
 def _current_timestamp() -> str:
@@ -174,3 +187,104 @@ def create_backup(library_path: Path, backup_root: Path) -> Path:
         ) from exc
 
     return backup_file
+
+
+def restore_backup(
+    library_path: Path,
+    backup_root: Path,
+    identifier: str,
+) -> RestoreVerification:
+    identifier_path = Path(identifier)
+    if (
+        not identifier
+        or identifier in {".", ".."}
+        or identifier_path.is_absolute()
+        or identifier_path.name != identifier
+        or identifier_path.drive
+    ):
+        raise PreconditionFailure(
+            f"Invalid backup identifier: {identifier}",
+            stage="restore_backup",
+        )
+
+    backup_root_resolved = backup_root.resolve()
+    backup_dir = (backup_root / identifier).resolve()
+    if backup_root_resolved not in backup_dir.parents:
+        raise PreconditionFailure(
+            f"Backup identifier escapes backup root: {identifier}",
+            stage="restore_backup",
+        )
+    if not backup_dir.is_dir():
+        raise PreconditionFailure(
+            f"Backup directory not found: {backup_dir}",
+            stage="restore_backup",
+        )
+
+    backup_file = backup_dir / library_path.name
+    if not backup_file.is_file():
+        raise PreconditionFailure(
+            f"Backup file not found: {backup_file}",
+            stage="restore_backup",
+        )
+
+    temp_fd, temp_path = tempfile.mkstemp(
+        prefix=f".{library_path.name}.",
+        suffix=".tmp",
+        dir=library_path.parent,
+    )
+    os.close(temp_fd)
+    temp_file = Path(temp_path)
+
+    try:
+        copy2(backup_file, temp_file)
+        try:
+            backup_size = backup_file.stat().st_size
+            temp_size = temp_file.stat().st_size
+        except OSError as exc:
+            raise PreconditionFailure(
+                f"Backup verification failed: {exc}",
+                stage="restore_backup",
+            ) from exc
+        if temp_size != backup_size:
+            raise PreconditionFailure(
+                "Backup verification failed: size mismatch during copy.",
+                stage="restore_backup",
+            )
+        temp_file.replace(library_path)
+    except PreconditionFailure:
+        raise
+    except OSError as exc:
+        raise PreconditionFailure(
+            f"Backup restore failed: {exc}",
+            stage="restore_backup",
+        ) from exc
+    finally:
+        try:
+            if temp_file.exists():
+                temp_file.unlink()
+        except OSError:
+            pass
+
+    try:
+        restored_exists = library_path.exists()
+        restored_size = library_path.stat().st_size if restored_exists else 0
+    except OSError as exc:
+        raise PreconditionFailure(
+            f"Backup verification failed: {exc}",
+            stage="restore_backup",
+        ) from exc
+    if not restored_exists or restored_size != backup_size:
+        raise PreconditionFailure(
+            "Backup verification failed: restored file mismatch.",
+            stage="restore_backup",
+        )
+
+    return RestoreVerification(
+        identifier=identifier,
+        backup_file=backup_file,
+        restored_file=library_path,
+        backup_size=backup_size,
+        restored_size=restored_size,
+        restored_exists=restored_exists,
+        size_match=restored_exists and restored_size == backup_size,
+    )
